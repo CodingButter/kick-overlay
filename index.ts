@@ -181,9 +181,9 @@ function queuePowerup(username: string, powerupId: PowerupType): void {
 const PORT = 5050;
 const REDIRECT_URI = `http://localhost:${PORT}/callback`;
 
-// Set this to your public webhook URL (e.g., ngrok URL)
-// For local dev, run: ngrok http 5050
-const WEBHOOK_URL = process.env.WEBHOOK_URL || `http://localhost:${PORT}/webhook`;
+// Public URL for all links and webhook (derived from PUBLIC_URL env var)
+const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+const WEBHOOK_URL = `${PUBLIC_URL}/webhook`;
 
 // Store tokens and chat messages in memory
 let storedTokens: any = null;
@@ -1624,8 +1624,7 @@ Bun.serve({
           await Bun.write(filepath, buffer);
 
           // Update user's dropImage in their profile
-          const baseUrl = process.env.WEBHOOK_URL?.replace('/webhook', '') || 'http://localhost:5050';
-          const imageUrl = `${baseUrl}/public/uploads/${filename}`;
+          const imageUrl = `${PUBLIC_URL}/public/uploads/${filename}`;
           await saveUserData(username!, { dropImage: imageUrl });
 
           return Response.json({ success: true, imageUrl });

@@ -18,6 +18,9 @@ interface CommandHandler {
     queuePowerup?: QueuePowerup;
 }
 
+// Public URL for all links (derived from PUBLIC_URL env var)
+const PUBLIC_URL = process.env.PUBLIC_URL || 'http://localhost:5050';
+
 // Admin users exempt from cooldowns and point costs
 export const ADMIN_USERS = ['codingbutter'];
 
@@ -382,7 +385,7 @@ const commands: Record<string, Command> = {
         description: "Get the link to all available commands",
         arguments: "",
         handler: ({message, sendChat}: CommandHandler) => {
-            sendChat(`@${message.user.username} View all available commands at: https://kickhook.plexflex.tv/commands`);
+            sendChat(`@${message.user.username} View all available commands at: ${PUBLIC_URL}/commands`);
         }
     },
     "!voicelist": {
@@ -390,7 +393,7 @@ const commands: Record<string, Command> = {
         description: "Get the link to available TTS voices",
         arguments: "",
         handler: ({message, sendChat}: CommandHandler) => {
-            sendChat(`@${message.user.username} View all available voices at: https://kickhook.plexflex.tv/voicelist`);
+            sendChat(`@${message.user.username} View all available voices at: ${PUBLIC_URL}/voicelist`);
         }
     },
     "!say": {
@@ -495,11 +498,9 @@ const commands: Record<string, Command> = {
         handler: async ({ message, sendChat, queueDrop }: CommandHandler) => {
             const content = message.content.replace(/^!drop\s*/i, '').trim();
             const username = message.user.username;
-            const baseUrl = process.env.WEBHOOK_URL?.replace('/webhook', '') || 'https://kickhook.plexflex.tv';
-
             // Handle subcommands
             if (content.startsWith('-rules') || content === 'rules') {
-                sendChat(`@${username} Learn how to play the Drop Game: ${baseUrl}/drop-game-rules`);
+                sendChat(`@${username} Learn how to play the Drop Game: ${PUBLIC_URL}/drop-game-rules`);
                 return;
             }
 
@@ -617,8 +618,7 @@ const commands: Record<string, Command> = {
         description: "Get the link to your profile page to view stats and customize settings",
         arguments: "",
         handler: async ({ message, sendChat }: CommandHandler) => {
-            const baseUrl = process.env.WEBHOOK_URL?.replace('/webhook', '') || 'https://kickhook.plexflex.tv';
-            sendChat(`@${message.user.username} Visit ${baseUrl}/profile/${message.user.username} to view your stats and customize your settings!`);
+            sendChat(`@${message.user.username} Visit ${PUBLIC_URL}/profile/${message.user.username} to view your stats and customize your settings!`);
         }
     },
     "!stats": {
