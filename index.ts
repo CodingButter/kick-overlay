@@ -1,36 +1,51 @@
-import commands, { addDropPoints, addChannelPoints, getUserData, saveUserData, getAllUserData, isAdmin, POWERUPS, PowerupType, getUserPowerups, buyPowerup } from './commands';
-import { generateSystemPrompt, generateUserPrompt } from './claude_prompt_template';
+import commands, { addDropPoints, addChannelPoints, getUserData, saveUserData, getAllUserData, isAdmin, POWERUPS, PowerupType, getUserPowerups, buyPowerup } from './server/commands';
+import { generateSystemPrompt, generateUserPrompt } from './server/claude_prompt_template';
+import { db, queries, migrateFromJson, seedDefaultOverlaySettings, seedDefaultPowerups, seedDefaultTips, seedDefaultGoals, getOverlaySettingsMap, getPowerupsFromDb, getTipsArray, getGoalsData } from './server/db';
 
-// Verification codes for profile login
-// Map<"username:code", { createdAt: number, verified: boolean }>
-interface VerifyEntry {
-  createdAt: number;
-  verified: boolean;
-}
-const pendingVerifications = new Map<string, VerifyEntry>();
+// Run database migration on startup (imports from JSON files if they exist)
+migrateFromJson().catch(err => console.error('Migration error:', err));
 
-// Session tokens for profile access (persists after verification)
-// Map<"username:sessionToken", { createdAt: number }>
-interface SessionEntry {
-  createdAt: number;
+// Seed default data
+seedDefaultPowerups();
+seedDefaultOverlaySettings();
+seedDefaultTips();
+seedDefaultGoals();
+
+// Admin session TTL (24 hours)
+const ADMIN_SESSION_TTL = 24 * 60 * 60 * 1000;
+
+// Generate admin session token
+function generateAdminSessionToken(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 64; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
 }
-const activeSessions = new Map<string, SessionEntry>();
+
+// Verify admin session from request
+function verifyAdminSession(req: Request): boolean {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return false;
+  const token = authHeader.slice(7);
+  const session = queries.getAdminSession.get(token);
+  return !!session;
+}
+
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// Clean up expired verifications every minute
+// Clean up expired verifications and sessions every minute (database-based)
 setInterval(() => {
-  const now = Date.now();
-  const fiveMinutes = 5 * 60 * 1000;
-  for (const [key, entry] of pendingVerifications.entries()) {
-    if (now - entry.createdAt > fiveMinutes) {
-      pendingVerifications.delete(key);
-    }
-  }
-  // Also clean up expired sessions
-  for (const [key, entry] of activeSessions.entries()) {
-    if (now - entry.createdAt > SESSION_TTL) {
-      activeSessions.delete(key);
-    }
+  try {
+    // Delete expired sessions
+    queries.deleteExpiredSessions.run();
+    // Delete expired admin sessions
+    queries.deleteExpiredAdminSessions.run();
+    // Delete expired verification codes (older than 5 minutes)
+    db.exec(`DELETE FROM verification_codes WHERE expires_at < datetime('now')`);
+  } catch (error) {
+    console.error('Cleanup error:', error);
   }
 }, 60000);
 
@@ -51,7 +66,7 @@ function generateVerifyCode(): string {
   }
   return code;
 }
-import { speak, getVoices } from './elevenlabs';
+import { speak, getVoices } from './server/elevenlabs';
 
 // Load dropgame config from JSON file
 interface DropGameConfig {
@@ -86,7 +101,7 @@ let dropGameConfig: DropGameConfig | null = null;
 async function loadDropGameConfig(): Promise<DropGameConfig> {
   if (dropGameConfig) return dropGameConfig;
   try {
-    const file = Bun.file('./dropgame.config.json');
+    const file = Bun.file('./config/dropgame.config.json');
     if (await file.exists()) {
       dropGameConfig = await file.json();
       console.log('Loaded dropgame.config.json');
@@ -192,7 +207,7 @@ let chatMessages: any[] = [];
 // Load tokens from file on startup
 async function loadStoredTokens(): Promise<void> {
   try {
-    const file = Bun.file('./tokens.json');
+    const file = Bun.file('./config/tokens.json');
     if (await file.exists()) {
       storedTokens = await file.json();
       console.log('Loaded tokens from tokens.json');
@@ -236,7 +251,7 @@ async function refreshAccessToken(): Promise<boolean> {
     storedTokens = newTokens;
 
     // Save new tokens to file
-    await Bun.write('./tokens.json', JSON.stringify(newTokens, null, 2));
+    await Bun.write('./config/tokens.json', JSON.stringify(newTokens, null, 2));
     console.log('Access token refreshed successfully');
     return true;
   } catch (error) {
@@ -336,7 +351,7 @@ async function processAIResponse(
     aiCooldown.set(username, now);
 
     // Get user data for context
-    const userData = await getUserData(username);
+    const userData = getUserData(username);
 
     // Get recent messages for context (last 20, excluding the current message)
     const recentMessages = chatMessages.slice(-21, -1).map(m => ({
@@ -656,17 +671,16 @@ const goals: Goals = {
   },
 };
 
-// Load goals from file on startup (fallback for when API isn't available)
+// Load goals from database on startup (fallback for when API isn't available)
 async function loadGoals(): Promise<void> {
   try {
-    const file = Bun.file('./goals.json');
-    if (await file.exists()) {
-      const saved = await file.json();
-      // Restore current counts from file, but keep targets from env
-      goals.followers.current = saved.followers?.current ?? goals.followers.current;
-      goals.subscribers.current = saved.subscribers?.current ?? goals.subscribers.current;
-      console.log(`Loaded goals: ${goals.followers.current} followers, ${goals.subscribers.current} subs`);
-    }
+    // Load from database
+    const dbGoals = getGoalsData();
+    goals.followers.current = dbGoals.followers.current;
+    goals.followers.target = dbGoals.followers.target;
+    goals.subscribers.current = dbGoals.subscribers.current;
+    goals.subscribers.target = dbGoals.subscribers.target;
+    console.log(`Loaded goals: ${goals.followers.current} followers, ${goals.subscribers.current} subs`);
 
     // Also try to fetch from Kick API on startup
     fetchKickGoals().catch(err => console.error('Initial goals fetch failed:', err));
@@ -675,13 +689,11 @@ async function loadGoals(): Promise<void> {
   }
 }
 
-// Save goals to file (fallback)
-async function saveGoals(): Promise<void> {
+// Save goals to database (fallback)
+function saveGoals(): void {
   try {
-    await Bun.write('./goals.json', JSON.stringify({
-      followers: { current: goals.followers.current },
-      subscribers: { current: goals.subscribers.current },
-    }, null, 2));
+    queries.upsertGoal.run('followers', 'Followers', goals.followers.current, goals.followers.target, 1);
+    queries.upsertGoal.run('subscribers', 'Subscribers', goals.subscribers.current, goals.subscribers.target, 1);
   } catch (error) {
     console.error('Error saving goals:', error);
   }
@@ -911,22 +923,25 @@ async function sendChatMessage(message: string, retried = false): Promise<void> 
   }
 }
 
-import loginPage from './login.html';
-import chatPage from './chat.html';
-import goalsPage from './goals.html';
-import overlayPage from './overlay.html';
-import voicelistPage from './voicelist.html';
-import commandslistPage from './commandslist.html';
-import dropgamePage from './dropgame.html';
-import profilePage from './profile.html';
-import profileLoginPage from './profile-login.html';
-import dropGameRulesPage from './drop-game-rules.html';
+// SPA entry point - serves React Router app for all frontend routes
+import spaIndex from './index.html';
 
 Bun.serve({
   port: PORT,
   hostname: '0.0.0.0', // Listen on all network interfaces
   routes: {
-    '/': loginPage,
+    // SPA routes - all served by React Router
+    '/': spaIndex,
+    '/commands': spaIndex,
+    '/voicelist': spaIndex,
+    '/drop-game-rules': spaIndex,
+    '/profile-login': spaIndex,
+    '/overlay': spaIndex,
+    '/overlay/chat': spaIndex,
+    '/overlay/goals': spaIndex,
+    '/overlay/dropgame': spaIndex,
+    '/profile/*': spaIndex,
+    '/admin': spaIndex,
     '/auth': {
       GET: async () => {
         const authUrl = await buildAuthUrl();
@@ -971,7 +986,7 @@ Bun.serve({
           storedTokens = tokens;
 
           // Save tokens to file for use in overlay app
-          await Bun.write('./tokens.json', JSON.stringify(tokens, null, 2));
+          await Bun.write('./config/tokens.json', JSON.stringify(tokens, null, 2));
 
           // Get user info and subscribe to events
           let userInfo = null;
@@ -1084,14 +1099,11 @@ Bun.serve({
               const verifyCode = content.split(' ')[1]?.toUpperCase();
               const username = event.sender?.username;
               if (verifyCode && username) {
-                // Key is username:code - only the specific user can verify their code
-                const key = `${username.toLowerCase()}:${verifyCode}`;
-                if (pendingVerifications.has(key)) {
-                  const entry = pendingVerifications.get(key)!;
-                  if (!entry.verified) {
-                    entry.verified = true;
-                    console.log(`Profile verified for ${username} with code ${verifyCode}`);
-                  }
+                // Check database for pending verification
+                const verification = queries.getVerification.get(username, verifyCode);
+                if (verification && !verification.verified) {
+                  queries.markVerified.run(username, verifyCode);
+                  console.log(`Profile verified for ${username} with code ${verifyCode}`);
                 }
               }
             }
@@ -1236,6 +1248,12 @@ Bun.serve({
         return Response.json(chatMessages);
       },
     },
+    '/api/overlay/settings': {
+      GET: () => {
+        const settings = getOverlaySettingsMap();
+        return Response.json(settings);
+      },
+    },
     '/api/goals': {
       GET: async () => {
         // Fetch goals from Kick API (with caching)
@@ -1256,14 +1274,8 @@ Bun.serve({
       },
     },
     '/api/tips': {
-      GET: async () => {
-        try {
-          const file = Bun.file('./tips.json');
-          const tips = await file.json();
-          return Response.json(tips);
-        } catch (error) {
-          return Response.json([]);
-        }
+      GET: () => {
+        return Response.json(getTipsArray());
       },
     },
     '/api/tts/next': {
@@ -1334,15 +1346,7 @@ Bun.serve({
         }
       },
     },
-    '/voicelist': voicelistPage,
-    '/commands': commandslistPage,
-    '/overlay': overlayPage,
-    '/overlay/chat': chatPage,
-    '/overlay/goals': goalsPage,
-    '/overlay/dropgame': dropgamePage,
-    '/profile-login': profileLoginPage,
-    '/profile/:username': profilePage,
-    '/drop-game-rules': dropGameRulesPage,
+    // Note: page routes moved to top with spaIndex
     '/api/dropgame/config': {
       GET: async () => {
         const config = await loadDropGameConfig();
@@ -1381,8 +1385,8 @@ Bun.serve({
             return Response.json({ error: 'Invalid request' }, { status: 400 });
           }
 
-          // Add points to user
-          const newTotal = await addDropPoints(username, score);
+          // Add points to user and record drop history
+          const newTotal = await addDropPoints(username, score, isPerfect);
 
           console.log(`${username} scored ${score} points${isPerfect ? ' (PERFECT!)' : ''} - Total: ${newTotal}`);
 
@@ -1482,7 +1486,7 @@ Bun.serve({
       if (!username) {
         return Response.json({ error: 'Username required' }, { status: 400 });
       }
-      const userData = await getUserData(username);
+      const userData = getUserData(username);
       // Return only public stats (no token)
       return Response.json({
         username,
@@ -1509,19 +1513,151 @@ Bun.serve({
         .slice(0, 50);
       return Response.json(leaderboard);
     },
+    // Admin login
+    '/api/admin/login': {
+      POST: async (req) => {
+        try {
+          const body = await req.json() as { password: string };
+          const adminPassword = process.env.ADMIN_PASSWORD;
+
+          if (!adminPassword) {
+            return Response.json({ error: 'Admin password not configured' }, { status: 500 });
+          }
+
+          if (body.password !== adminPassword) {
+            return Response.json({ error: 'Invalid password' }, { status: 401 });
+          }
+
+          // Create admin session
+          const token = generateAdminSessionToken();
+          const expiresAt = new Date(Date.now() + ADMIN_SESSION_TTL).toISOString();
+          queries.createAdminSession.run(token, expiresAt);
+
+          return Response.json({ success: true, token });
+        } catch (error) {
+          return Response.json({ error: 'Invalid request' }, { status: 400 });
+        }
+      },
+    },
+    // Admin logout
+    '/api/admin/logout': {
+      POST: async (req) => {
+        const authHeader = req.headers.get('Authorization');
+        if (authHeader?.startsWith('Bearer ')) {
+          const token = authHeader.slice(7);
+          queries.deleteAdminSession.run(token);
+        }
+        return Response.json({ success: true });
+      },
+    },
+    // Admin session verification
+    '/api/admin/verify': {
+      GET: (req) => {
+        if (!verifyAdminSession(req)) {
+          return Response.json({ valid: false }, { status: 401 });
+        }
+        return Response.json({ valid: true });
+      },
+    },
+    // Admin overlay settings
+    '/api/admin/settings': {
+      GET: (req) => {
+        if (!verifyAdminSession(req)) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const rows = queries.getAllOverlaySettings.all();
+        return Response.json(rows);
+      },
+      PUT: async (req) => {
+        if (!verifyAdminSession(req)) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        try {
+          const body = await req.json() as { key: string; value: string };
+          queries.upsertOverlaySetting.run(body.key, body.value, null);
+          return Response.json({ success: true });
+        } catch (error) {
+          return Response.json({ error: 'Invalid request' }, { status: 400 });
+        }
+      },
+    },
+    // Admin powerup config
+    '/api/admin/powerups': {
+      GET: (req) => {
+        if (!verifyAdminSession(req)) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const rows = queries.getAllPowerupConfigsIncludingDisabled.all();
+        return Response.json(rows.map(row => ({
+          ...row,
+          variables: JSON.parse(row.variables || '{}'),
+        })));
+      },
+    },
+    // Admin dropgame config
+    '/api/admin/dropgame': {
+      GET: async (req) => {
+        if (!verifyAdminSession(req)) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const config = await loadDropGameConfig();
+        return Response.json(config);
+      },
+      PUT: async (req) => {
+        if (!verifyAdminSession(req)) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        try {
+          const body = await req.json() as DropGameConfig;
+          await Bun.write('./config/dropgame.config.json', JSON.stringify(body, null, 2));
+          // Invalidate cache to reload on next access
+          dropGameConfig = null;
+          return Response.json({ success: true });
+        } catch (error) {
+          return Response.json({ error: 'Invalid request' }, { status: 400 });
+        }
+      },
+    },
   },
   // Handle dynamic routes for profile pages
   fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
 
+    // Admin powerup update API: PUT /api/admin/powerups/:id
+    const adminPowerupMatch = path.match(/^\/api\/admin\/powerups\/([^/]+)$/);
+    if (adminPowerupMatch && req.method === 'PUT') {
+      if (!verifyAdminSession(req)) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const [, powerupId] = adminPowerupMatch;
+      return (async () => {
+        try {
+          const body = await req.json() as { name: string; description: string; cost: number; variables: Record<string, any>; enabled: number };
+          queries.updatePowerupConfig.run(
+            body.name,
+            body.description,
+            body.cost,
+            JSON.stringify(body.variables),
+            body.enabled,
+            powerupId!
+          );
+          return Response.json({ success: true });
+        } catch (error) {
+          console.error('Powerup update error:', error);
+          return Response.json({ error: 'Invalid request' }, { status: 400 });
+        }
+      })();
+    }
+
     // Verify generate API: POST /api/verify/generate/:username
     const verifyGenerateMatch = path.match(/^\/api\/verify\/generate\/([^/]+)$/);
     if (verifyGenerateMatch && req.method === 'POST') {
       const [, username] = verifyGenerateMatch;
       const code = generateVerifyCode();
-      const key = `${username!.toLowerCase()}:${code}`;
-      pendingVerifications.set(key, { createdAt: Date.now(), verified: false });
+      // Store in database with 5 minute expiry
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      queries.createVerification.run(username!, code, expiresAt);
       return Response.json({ code });
     }
 
@@ -1529,17 +1665,28 @@ Bun.serve({
     const verifyCheckMatch = path.match(/^\/api\/verify\/check\/([^/]+)\/([A-Z0-9]+)$/);
     if (verifyCheckMatch && req.method === 'GET') {
       const [, username, code] = verifyCheckMatch;
-      const key = `${username!.toLowerCase()}:${code}`;
-      const entry = pendingVerifications.get(key);
-      if (!entry) {
+      const verification = queries.getVerification.get(username!, code!);
+
+      if (!verification) {
         return Response.json({ error: 'Invalid or expired code' }, { status: 404 });
       }
 
       // If verified, create a session token for persistent access
-      if (entry.verified) {
+      if (verification.verified) {
+        // Get or create user
+        let user = queries.getUserByUsername.get(username!);
+        if (!user) {
+          queries.createUser.run(username!);
+          user = queries.getUserByUsername.get(username!);
+        }
+
         const sessionToken = generateSessionToken();
-        const sessionKey = `${username!.toLowerCase()}:${sessionToken}`;
-        activeSessions.set(sessionKey, { createdAt: Date.now() });
+        const expiresAt = new Date(Date.now() + SESSION_TTL).toISOString();
+        queries.createSession.run(user!.id, sessionToken, expiresAt);
+
+        // Clean up the verification code
+        queries.deleteVerification.run(username!);
+
         return Response.json({ verified: true, sessionToken });
       }
 
@@ -1550,19 +1697,13 @@ Bun.serve({
     const sessionValidateMatch = path.match(/^\/api\/session\/validate\/([^/]+)\/([A-Za-z0-9]+)$/);
     if (sessionValidateMatch && req.method === 'GET') {
       const [, username, token] = sessionValidateMatch;
-      const sessionKey = `${username!.toLowerCase()}:${token}`;
-      const session = activeSessions.get(sessionKey);
+      const session = queries.getSession.get(token!);
 
       if (session) {
-        const now = Date.now();
-        // Check if session is still valid (7 days)
-        if (now - session.createdAt < SESSION_TTL) {
-          // Refresh the session expiry
-          session.createdAt = now;
+        // Verify the session belongs to this user
+        const user = queries.getUserById.get(session.user_id);
+        if (user && user.username.toLowerCase() === username!.toLowerCase()) {
           return Response.json({ valid: true });
-        } else {
-          // Session expired, remove it
-          activeSessions.delete(sessionKey);
         }
       }
 
@@ -1625,7 +1766,7 @@ Bun.serve({
 
           // Update user's dropImage in their profile
           const imageUrl = `${PUBLIC_URL}/public/uploads/${filename}`;
-          await saveUserData(username!, { dropImage: imageUrl });
+          saveUserData(username!, { dropImage: imageUrl });
 
           return Response.json({ success: true, imageUrl });
         } catch (error) {
@@ -1642,15 +1783,18 @@ Bun.serve({
 
       if (req.method === 'GET') {
         return (async () => {
-          const userData = await getUserData(username!);
+          const userData = getUserData(username!);
+          const userPowerups = await getUserPowerups(username!);
           // Return full profile data (user already verified via chat)
           return Response.json({
+            username: username,
             voiceId: userData.voiceId,
             dropPoints: userData.dropPoints || 0,
             totalDrops: userData.totalDrops || 0,
             channelPoints: userData.channelPoints || 0,
             dropImage: userData.dropImage,
             country: userData.country,
+            powerups: userPowerups,
           });
         })();
       }
@@ -1664,15 +1808,18 @@ Bun.serve({
             if (body.dropImage !== undefined) updates.dropImage = body.dropImage;
             if (body.country !== undefined) updates.country = body.country;
 
-            await saveUserData(username!, updates);
-            const updatedData = await getUserData(username!);
+            saveUserData(username!, updates);
+            const updatedData = getUserData(username!);
+            const userPowerups = await getUserPowerups(username!);
             return Response.json({
+              username: username,
               voiceId: updatedData.voiceId,
               dropPoints: updatedData.dropPoints || 0,
               totalDrops: updatedData.totalDrops || 0,
               channelPoints: updatedData.channelPoints || 0,
               dropImage: updatedData.dropImage,
               country: updatedData.country,
+              powerups: userPowerups,
             });
           } catch (error) {
             return Response.json({ error: 'Invalid request body' }, { status: 400 });
@@ -1681,9 +1828,30 @@ Bun.serve({
       }
     }
 
+    // Profile page route (dynamic): /profile/:username
+    const profilePageMatch = path.match(/^\/profile\/([^/]+)$/);
+    if (profilePageMatch) {
+      // Read and serve the HTML file for dynamic routes
+      const htmlFile = Bun.file('./index.html');
+      return new Response(htmlFile, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+
+    // For all other non-API routes, serve the SPA (React Router will handle 404)
+    if (!path.startsWith('/api/') && !path.startsWith('/public/') && !path.startsWith('/webhook')) {
+      const htmlFile = Bun.file('./index.html');
+      return new Response(htmlFile, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+
     return new Response('Not Found', { status: 404 });
   },
-  development: true,
+  development: {
+    hmr: true,
+    console: true,
+  },
 });
 
 console.log(`OAuth server running at http://localhost:${PORT}`);

@@ -1,7 +1,0 @@
-{
-  "access_token": "YOUR_ACCESS_TOKEN_HERE",
-  "expires_in": 7200,
-  "refresh_token": "YOUR_REFRESH_TOKEN_HERE",
-  "scope": "user:read channel:read channel:write chat:write events:subscribe",
-  "token_type": "Bearer"
-}

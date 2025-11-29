@@ -9,19 +9,18 @@ bun.lock
 .env.test.local
 .env.production.local
 .env.local
-tokens.json
 
-# User data files (generated at runtime)
-user_data.json
-user_voices.json
-goals.json
-tips.json
+# Config files with secrets
+config/tokens.json
+
+# Database (generated at runtime)
+data/
 
 # User uploaded files
 public/uploads/
 
 # AI prompt templates (may contain personal info)
-claude_prompt_template.ts
+server/claude_prompt_template.ts
 
 # Temp/debug files
 login_response.txt

@@ -1,0 +1,11 @@
+export { HomePage } from './HomePage';
+export { NotFoundPage } from './NotFoundPage';
+export { CommandsPage } from './CommandsPage';
+export { DropGameRulesPage } from './DropGameRulesPage';
+export { VoiceListPage } from './VoiceListPage';
+export { ProfilePage } from './ProfilePage';
+export { ProfileLoginPage } from './ProfileLoginPage';
+export { GoalsPage } from './GoalsPage';
+export { ChatPage } from './ChatPage';
+export { DropGamePage } from './DropGamePage';
+export { OverlayPage } from './OverlayPage';
