@@ -430,18 +430,21 @@ function CombinedOverlay() {
       )}
 
       {/* TOP ROW - VS Code (left) | Goals, Notifications, Chat (right) */}
-      <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+      <div className="flex gap-4 min-h-0 overflow-hidden">
         {/* VS Code Frame - chroma-key magenta for OBS filtering */}
         <div
-          className="flex-1 rounded-2xl border-2 border-slate-600/50 pointer-events-none"
+          className="shrink-0 border-2 border-slate-600/50 pointer-events-none"
           style={{
+            width: '1300px',
+            height: '725px',
+            borderRadius: '1rem',
             boxShadow: '0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
             background: '#FF00FF',
           }}
         />
 
         {/* Right sidebar - Goals, Notifications, Chat as separate sections */}
-        <div className="w-[420px] flex flex-col gap-4 min-h-0">
+        <div className="flex-1 flex flex-col gap-4" style={{ height: '709px' }}>
           {/* Goals section */}
           <div className="shrink-0 bg-slate-900/90 rounded-2xl shadow-2xl border border-slate-700 p-4">
             <h2 className="text-lg font-bold text-green-400 mb-3 flex items-center gap-2">
@@ -511,7 +514,7 @@ function CombinedOverlay() {
           </div>
 
           {/* Chat section - fills remaining space */}
-          <div className="flex-1 min-h-0 bg-slate-900/90 rounded-2xl shadow-2xl border border-slate-700 p-4 overflow-hidden flex flex-col">
+          <div className="flex-1 bg-slate-900/90 shadow-2xl border border-slate-700 p-4 flex flex-col" style={{ borderRadius: '1rem', minHeight: 0, overflow: 'hidden' }}>
             <h2 className="text-lg font-bold text-blue-400 mb-3 flex items-center gap-2 shrink-0">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
