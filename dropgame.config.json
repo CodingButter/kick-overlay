@@ -1,0 +1,51 @@
+{
+  "game": {
+    "platformWidthRatio": 0.125,
+    "avatarSize": 100,
+    "cleanupDelay": 10000,
+    "gravity": 5,
+    "bounceDamping": 0.85,
+    "minHorizontalVelocity": 100,
+    "maxHorizontalVelocity": 500,
+    "horizontalDrift": 100,
+    "usernameFontSize": 24
+  },
+  "scoring": {
+    "basePoints": 50,
+    "centerBonusPoints": 100
+  },
+  "physics": {
+    "explosionRadius": 2000,
+    "explosionForce": 1500,
+    "explosionUpwardBoost": 400,
+    "ghostDuration": 5000,
+    "boostDuration": 3000,
+    "powerDropGravityMultiplier": 3
+  },
+  "powerups": {
+    "tnt": {
+      "cost": 500,
+      "description": "Creates an explosion that pushes all other players away from you"
+    },
+    "powerdrop": {
+      "cost": 300,
+      "description": "Stops horizontal movement and drops straight down at high speed"
+    },
+    "shield": {
+      "cost": 400,
+      "description": "Protects you from being pushed by other players' powerups"
+    },
+    "magnet": {
+      "cost": 600,
+      "description": "Pulls your dropper towards the center of the platform"
+    },
+    "ghost": {
+      "cost": 750,
+      "description": "Pass through walls and ignore explosions/collisions"
+    },
+    "boost": {
+      "cost": 250,
+      "description": "Doubles your horizontal speed temporarily"
+    }
+  }
+}

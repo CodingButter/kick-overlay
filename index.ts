@@ -53,6 +53,81 @@ function generateVerifyCode(): string {
 }
 import { speak, getVoices } from './elevenlabs';
 
+// Load dropgame config from JSON file
+interface DropGameConfig {
+  game: {
+    platformWidthRatio: number;
+    avatarSize: number;
+    cleanupDelay: number;
+    gravity: number;
+    bounceDamping: number;
+    minHorizontalVelocity: number;
+    maxHorizontalVelocity: number;
+    horizontalDrift: number;
+    usernameFontSize: number;
+  };
+  scoring: {
+    basePoints: number;
+    centerBonusPoints: number;
+  };
+  physics: {
+    explosionRadius: number;
+    explosionForce: number;
+    explosionUpwardBoost: number;
+    ghostDuration: number;
+    boostDuration: number;
+    powerDropGravityMultiplier: number;
+  };
+  powerups: Record<string, { cost: number; description: string }>;
+}
+
+let dropGameConfig: DropGameConfig | null = null;
+
+async function loadDropGameConfig(): Promise<DropGameConfig> {
+  if (dropGameConfig) return dropGameConfig;
+  try {
+    const file = Bun.file('./dropgame.config.json');
+    if (await file.exists()) {
+      dropGameConfig = await file.json();
+      console.log('Loaded dropgame.config.json');
+      return dropGameConfig!;
+    }
+  } catch (error) {
+    console.error('Error loading dropgame.config.json:', error);
+  }
+  // Return defaults if file doesn't exist
+  dropGameConfig = {
+    game: {
+      platformWidthRatio: 0.125,
+      avatarSize: 60,
+      cleanupDelay: 10000,
+      gravity: 5,
+      bounceDamping: 0.85,
+      minHorizontalVelocity: 100,
+      maxHorizontalVelocity: 500,
+      horizontalDrift: 100,
+      usernameFontSize: 24,
+    },
+    scoring: {
+      basePoints: 10,
+      centerBonusPoints: 100,
+    },
+    physics: {
+      explosionRadius: 2000,
+      explosionForce: 1500,
+      explosionUpwardBoost: 400,
+      ghostDuration: 5000,
+      boostDuration: 3000,
+      powerDropGravityMultiplier: 3,
+    },
+    powerups: {},
+  };
+  return dropGameConfig;
+}
+
+// Load config on startup
+loadDropGameConfig();
+
 // Drop game types and queue
 interface DropEvent {
   username: string;
@@ -62,6 +137,9 @@ interface DropEvent {
 }
 const dropQueue: DropEvent[] = [];
 
+// Track active players in the drop game (haven't landed yet)
+const activeDroppers: Set<string> = new Set();
+
 // Powerup event queue - activated during a drop
 interface PowerupEvent {
   username: string;
@@ -70,10 +148,28 @@ interface PowerupEvent {
 }
 const powerupQueue: PowerupEvent[] = [];
 
+// Function to check if a player is already dropping
+function isPlayerDropping(username: string): boolean {
+  return activeDroppers.has(username.toLowerCase());
+}
+
+// Function to mark a player as landed/finished
+function playerLanded(username: string): void {
+  activeDroppers.delete(username.toLowerCase());
+  console.log(`Player ${username} landed and removed from active droppers`);
+}
+
 // Function to queue a drop
-function queueDrop(username: string, avatarUrl: string, emoteUrl?: string, activePowerup?: PowerupType): void {
+function queueDrop(username: string, avatarUrl: string, emoteUrl?: string, activePowerup?: PowerupType): boolean {
+  const lowerUsername = username.toLowerCase();
+  if (activeDroppers.has(lowerUsername)) {
+    console.log(`Player ${username} already has an active dropper, ignoring drop request`);
+    return false;
+  }
+  activeDroppers.add(lowerUsername);
   dropQueue.push({ username, avatarUrl, emoteUrl, activePowerup });
-  console.log(`Drop queued for ${username}${activePowerup ? ` with ${activePowerup}` : ''} (queue size: ${dropQueue.length})`);
+  console.log(`Drop queued for ${username}${activePowerup ? ` with ${activePowerup}` : ''} (queue size: ${dropQueue.length}, active: ${activeDroppers.size})`);
+  return true;
 }
 
 // Function to queue a powerup activation
@@ -1248,19 +1344,22 @@ Bun.serve({
     '/profile/:username': profilePage,
     '/drop-game-rules': dropGameRulesPage,
     '/api/dropgame/config': {
-      GET: () => {
+      GET: async () => {
+        const config = await loadDropGameConfig();
         return Response.json({
-          platformWidthRatio: parseFloat(process.env.DROP_PLATFORM_WIDTH_RATIO || '0.125'),
-          avatarSize: parseInt(process.env.DROP_AVATAR_SIZE || '60'),
-          cleanupDelay: parseInt(process.env.DROP_CLEANUP_DELAY || '10000'),
-          gravity: parseInt(process.env.DROP_GRAVITY || '5'),
-          bounceDamping: parseFloat(process.env.DROP_BOUNCE_DAMPING || '0.85'),
-          minHorizontalVelocity: parseInt(process.env.DROP_MIN_HORIZONTAL_VELOCITY || '100'),
-          maxHorizontalVelocity: parseInt(process.env.DROP_MAX_HORIZONTAL_VELOCITY || '500'),
-          horizontalDrift: parseInt(process.env.DROP_HORIZONTAL_DRIFT || '100'),
-          centerBonusPoints: parseInt(process.env.DROP_CENTER_BONUS_POINTS || '100'),
-          basePoints: parseInt(process.env.DROP_BASE_POINTS || '10'),
-          usernameFontSize: parseInt(process.env.DROP_USERNAME_FONT_SIZE || '24'),
+          platformWidthRatio: config.game.platformWidthRatio,
+          avatarSize: config.game.avatarSize,
+          cleanupDelay: config.game.cleanupDelay,
+          gravity: config.game.gravity,
+          bounceDamping: config.game.bounceDamping,
+          minHorizontalVelocity: config.game.minHorizontalVelocity,
+          maxHorizontalVelocity: config.game.maxHorizontalVelocity,
+          horizontalDrift: config.game.horizontalDrift,
+          centerBonusPoints: config.scoring.centerBonusPoints,
+          basePoints: config.scoring.basePoints,
+          usernameFontSize: config.game.usernameFontSize,
+          // Also send physics config for frontend
+          physics: config.physics,
         });
       },
     },
@@ -1291,6 +1390,21 @@ Bun.serve({
         } catch (error) {
           console.error('Error recording drop score:', error);
           return Response.json({ error: 'Failed to record score' }, { status: 500 });
+        }
+      },
+    },
+    '/api/dropgame/landed': {
+      POST: async (req) => {
+        try {
+          const body = await req.json() as { username: string };
+          const { username } = body;
+          if (!username) {
+            return Response.json({ error: 'Username required' }, { status: 400 });
+          }
+          playerLanded(username);
+          return Response.json({ success: true });
+        } catch (error) {
+          return Response.json({ error: 'Failed to process' }, { status: 500 });
         }
       },
     },

@@ -7,7 +7,7 @@ type Message = {
 }
 type ChatSend = (message: string) => void;
 type QueueTTS = (text: string, voiceId?: string) => Promise<boolean>;
-type QueueDrop = (username: string, avatarUrl: string, emoteUrl?: string, activePowerup?: PowerupType) => void;
+type QueueDrop = (username: string, avatarUrl: string, emoteUrl?: string, activePowerup?: PowerupType) => boolean;
 type QueuePowerup = (username: string, powerupId: PowerupType) => void;
 
 interface CommandHandler {
@@ -40,15 +40,15 @@ export interface Powerup {
     effect: string;
 }
 
-// Powerup definitions
-export const POWERUPS: Record<PowerupType, Powerup> = {
+// Default powerup definitions (can be overridden by dropgame.config.json)
+const DEFAULT_POWERUPS: Record<PowerupType, Powerup> = {
     tnt: {
         id: 'tnt',
         name: 'TNT',
         description: 'Creates an explosion that pushes all other players away from you',
         cost: 500,
         emoji: '💣',
-        effect: 'Pushes nearby droppers 200px away with explosive force'
+        effect: 'Pushes nearby droppers away with explosive force'
     },
     powerdrop: {
         id: 'powerdrop',
@@ -77,10 +77,10 @@ export const POWERUPS: Record<PowerupType, Powerup> = {
     ghost: {
         id: 'ghost',
         name: 'Ghost',
-        description: 'Pass through walls instead of bouncing',
-        cost: 350,
+        description: 'Pass through walls and ignore explosions/collisions',
+        cost: 750,
         emoji: '👻',
-        effect: 'Wrap around screen edges for 5 seconds'
+        effect: 'Immune to collisions/explosions and wrap around screen for 5 seconds'
     },
     boost: {
         id: 'boost',
@@ -91,6 +91,53 @@ export const POWERUPS: Record<PowerupType, Powerup> = {
         effect: 'Doubles horizontal velocity for 3 seconds'
     }
 };
+
+// Load config and merge with defaults
+let loadedPowerups: Record<PowerupType, Powerup> | null = null;
+
+async function loadPowerupsConfig(): Promise<Record<PowerupType, Powerup>> {
+    if (loadedPowerups) return loadedPowerups;
+    try {
+        const file = Bun.file('./dropgame.config.json');
+        if (await file.exists()) {
+            const config = await file.json();
+            if (config.powerups) {
+                // Merge config costs/descriptions with defaults
+                loadedPowerups = { ...DEFAULT_POWERUPS };
+                for (const [id, data] of Object.entries(config.powerups)) {
+                    if (loadedPowerups[id as PowerupType]) {
+                        loadedPowerups[id as PowerupType] = {
+                            ...loadedPowerups[id as PowerupType],
+                            cost: (data as any).cost ?? loadedPowerups[id as PowerupType].cost,
+                            description: (data as any).description ?? loadedPowerups[id as PowerupType].description,
+                        };
+                    }
+                }
+                return loadedPowerups;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading powerups config:', error);
+    }
+    loadedPowerups = DEFAULT_POWERUPS;
+    return loadedPowerups;
+}
+
+// Initialize on module load
+loadPowerupsConfig();
+
+// Export getter function for dynamic access
+export async function getPowerups(): Promise<Record<PowerupType, Powerup>> {
+    return loadPowerupsConfig();
+}
+
+// Export sync version for backwards compatibility (uses cached value)
+export const POWERUPS: Record<PowerupType, Powerup> = DEFAULT_POWERUPS;
+
+// Update POWERUPS object after config loads (for sync access)
+loadPowerupsConfig().then(loaded => {
+    Object.assign(POWERUPS, loaded);
+});
 
 interface UserData {
     voiceId?: string;
@@ -520,11 +567,16 @@ const commands: Record<string, Command> = {
             const avatarUrl = userData.dropImage || message.user.avatar_url;
 
             // Queue the drop with user's custom image or avatar
-            queueDrop(
+            const dropQueued = queueDrop(
                 username,
                 avatarUrl,
                 emoteUrl
             );
+
+            if (!dropQueued) {
+                sendChat(`@${username} You already have an active dropper! Wait for it to land first.`);
+                return;
+            }
 
             console.log(`Drop queued for ${username}${emoteUrl ? ' with emote' : ''}${userData.dropImage ? ' (custom image)' : ''}`);
         }

@@ -180,29 +180,36 @@ function DropGame() {
 
             switch (powerupId) {
                 case 'tnt':
-                    // TNT: Push all other droppers away
+                    // TNT: MEGA explosion that affects almost all droppers on screen
                     const tntX = d.x + config.avatarSize / 2;
                     const tntY = d.y + config.avatarSize / 2;
                     spawnExplosion(tntX, tntY);
 
-                    // We'll handle pushing other droppers separately
+                    // Super powerful explosion - affects droppers across the entire screen
+                    const EXPLOSION_RADIUS = 2000; // Huge radius to hit almost everyone
+                    const EXPLOSION_FORCE = 1500; // Much stronger force
+                    const UPWARD_BOOST = 400; // Strong upward push
+
                     setDroppers(prevDroppers => prevDroppers.map(other => {
-                        if (other.id === d.id || other.landed || other.hasShield) return other;
+                        // Skip self, landed droppers, shielded droppers, and ghost droppers
+                        const otherIsGhost = other.isGhost && other.ghostEndTime && Date.now() < other.ghostEndTime;
+                        if (other.id === d.id || other.landed || other.hasShield || otherIsGhost) return other;
                         const otherX = other.x + config.avatarSize / 2;
                         const otherY = other.y + config.avatarSize / 2;
                         const dx = otherX - tntX;
                         const dy = otherY - tntY;
                         const distance = Math.sqrt(dx * dx + dy * dy);
-                        if (distance < 300) {
-                            const force = (300 - distance) / 300 * 500;
-                            const angle = Math.atan2(dy, dx);
-                            return {
-                                ...other,
-                                vx: other.vx + Math.cos(angle) * force,
-                                vy: other.vy + Math.sin(angle) * force - 100, // Also push up a bit
-                            };
-                        }
-                        return other;
+
+                        // Always affect other droppers, with force decreasing slightly by distance
+                        const distanceFactor = Math.max(0.3, 1 - (distance / EXPLOSION_RADIUS));
+                        const force = EXPLOSION_FORCE * distanceFactor;
+                        const angle = Math.atan2(dy, dx);
+
+                        return {
+                            ...other,
+                            vx: other.vx + Math.cos(angle) * force,
+                            vy: other.vy + Math.sin(angle) * force - UPWARD_BOOST * distanceFactor,
+                        };
                     }));
                     return d;
 
@@ -400,8 +407,28 @@ function DropGame() {
                         return dropper;
                     }
 
-                    // Apply gravity (3x for power drop)
-                    const gravityMultiplier = dropper.isPowerDropping ? 3 : 1;
+                    // Apply gravity with multipliers:
+                    // - 3x for power drop
+                    // - MASSIVE gravity when above screen or moving upward to bring them back FAST
+                    let gravityMultiplier = 1;
+                    if (dropper.isPowerDropping) {
+                        gravityMultiplier = 3;
+                    } else if (dropper.y < -config.avatarSize * 2) {
+                        // Way above screen - extreme gravity to yank them back
+                        gravityMultiplier = 20;
+                    } else if (dropper.y < 0) {
+                        // Above screen - very strong gravity
+                        gravityMultiplier = 15;
+                    } else if (dropper.vy < -300) {
+                        // Moving upward very fast - slam on the brakes
+                        gravityMultiplier = 12;
+                    } else if (dropper.vy < -100) {
+                        // Moving upward fast
+                        gravityMultiplier = 8;
+                    } else if (dropper.vy < 0) {
+                        // Moving upward - strong gravity to reverse quickly
+                        gravityMultiplier = 5;
+                    }
                     let newVy = dropper.vy + config.gravity * gravityMultiplier * deltaTime;
 
                     // Apply random horizontal drift (wind effect) - skip if power dropping
@@ -459,6 +486,51 @@ function DropGame() {
                         }
                     }
 
+                    // Check collisions with other droppers (bounce off each other)
+                    const dropperCenterX = newX + config.avatarSize / 2;
+                    const dropperCenterY = newY + config.avatarSize / 2;
+                    const collisionRadius = config.avatarSize / 2;
+
+                    for (const other of prev) {
+                        if (other.id === dropper.id || other.landed) continue;
+                        // Skip collision if either dropper is a ghost
+                        if (isGhost || (other.isGhost && other.ghostEndTime && Date.now() < other.ghostEndTime)) continue;
+
+                        const otherCenterX = other.x + config.avatarSize / 2;
+                        const otherCenterY = other.y + config.avatarSize / 2;
+
+                        const dx = dropperCenterX - otherCenterX;
+                        const dy = dropperCenterY - otherCenterY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const minDistance = collisionRadius * 2;
+
+                        if (distance < minDistance && distance > 0) {
+                            // Collision detected! Calculate bounce
+                            const overlap = minDistance - distance;
+                            const normalX = dx / distance;
+                            const normalY = dy / distance;
+
+                            // Separate the droppers
+                            newX += normalX * overlap * 0.5;
+                            newY += normalY * overlap * 0.5;
+
+                            // Calculate relative velocity
+                            const relVx = newVx - other.vx;
+                            const relVy = newVy - other.vy;
+
+                            // Calculate relative velocity along collision normal
+                            const relVelAlongNormal = relVx * normalX + relVy * normalY;
+
+                            // Only bounce if droppers are moving towards each other
+                            if (relVelAlongNormal < 0) {
+                                // Bounce with some energy transfer (elastic collision)
+                                const bounceFactor = 0.8;
+                                newVx -= relVelAlongNormal * normalX * bounceFactor;
+                                newVy -= relVelAlongNormal * normalY * bounceFactor;
+                            }
+                        }
+                    }
+
                     // Check collisions - bottom of circle is the collision point
                     const avatarBottom = newY + config.avatarSize;
                     const avatarCenterX = newX + config.avatarSize / 2;
@@ -490,7 +562,7 @@ function DropGame() {
                             newWinner = dropper.username;
                         }
 
-                        // Report score to server
+                        // Report score to server and mark as landed
                         fetch("/api/dropgame/score", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -499,6 +571,13 @@ function DropGame() {
                                 score,
                                 isPerfect,
                             }),
+                        }).catch(() => {});
+
+                        // Notify server that player has landed (can drop again)
+                        fetch("/api/dropgame/landed", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ username: dropper.username }),
                         }).catch(() => {});
 
                         // Spawn confetti! More confetti for better scores
@@ -521,6 +600,13 @@ function DropGame() {
 
                     // Check if fell off bottom (missed platform)
                     if (avatarBottom >= rect.height) {
+                        // Notify server that player has landed (can drop again)
+                        fetch("/api/dropgame/landed", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ username: dropper.username }),
+                        }).catch(() => {});
+
                         return {
                             ...dropper,
                             x: newX,
