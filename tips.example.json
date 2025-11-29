@@ -1,0 +1,38 @@
+[
+  "Type !help or !commands to see all available commands",
+  "Type !discord to join our Discord community",
+  "Don't forget to follow if you enjoy the stream!",
+  "Use !say to have your message spoken on stream with text-to-speech!",
+  "Type !voicelist to browse 100+ AI voices you can use",
+  "Pick your favorite voice with !say id=VOICE_ID and it remembers your choice!",
+  "Pro tip: Test voices at the /voicelist page before using in chat",
+  "Visit /commands for detailed command info",
+  "The overlay you see is custom-built with Bun and React!",
+  "This entire stream setup is powered by Kick webhooks",
+  "The TTS uses ElevenLabs AI voices - over 100 to choose from!",
+
+  "Type !drop to play the drop game and earn points!",
+  "Land on the platform center for bonus points - PERFECT drops get 100+ pts!",
+  "Check your points with !points - earn by chatting and watching!",
+  "See who's on top with !leaderboard",
+  "You earn 25 points per chat message and 5 points per minute watching!",
+
+  "Buy powerups with !drop -buy [powerup] - use them during drops!",
+  "See all powerups with !drop -powerups - TNT, Shield, Magnet and more!",
+  "Check your powerup inventory with !drop -mine",
+  "Use !powerdrop while falling to drop straight down with 3x gravity!",
+  "TNT (!tnt) creates an explosion that pushes other players away!",
+  "Shield (!shield) protects you from other players' powerups!",
+  "Magnet (!magnet) pulls you towards the platform center - great for clutch saves!",
+  "Ghost (!ghost) lets you pass through walls for 5 seconds!",
+  "Speed Boost (!boost) doubles your horizontal speed for 3 seconds!",
+  "Time your powerups right - activate them while your dropper is falling!",
+
+  "Customize your profile at /profile-login - set your voice, avatar, and country!",
+  "Upload a custom drop game avatar from your profile page!",
+  "Your country flag shows next to your name in chat!",
+  "Buy powerups from your profile page or with chat commands!",
+
+  "Check out /drop-game-rules for the full drop game guide!",
+  "Type !drop -rules to get a link to the drop game rules page"
+]

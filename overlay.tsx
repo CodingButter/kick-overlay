@@ -39,9 +39,67 @@ interface ChatMessage {
   sender?: {
     username: string;
     id: number;
+    profile_picture?: string;
   };
   content?: string;
   message_id?: string;
+}
+
+interface UserCountryCache {
+  [username: string]: string | null;
+}
+
+// Get flag image URL from country code using flagcdn.com
+function getFlagUrl(countryCode: string): string {
+  return `https://flagcdn.com/24x18/${countryCode.toLowerCase()}.png`;
+}
+
+// Get emote image URL from emote ID
+function getEmoteUrl(emoteId: string): string {
+  return `https://files.kick.com/emotes/${emoteId}/fullsize`;
+}
+
+// Parse message content and render emotes
+// Emote format: [emote:ID:NAME]
+function renderMessageContent(content: string): React.ReactNode {
+  const emoteRegex = /\[emote:(\d+):([^\]]+)\]/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = emoteRegex.exec(content)) !== null) {
+    // Add text before the emote
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index));
+    }
+
+    // Add the emote image
+    const emoteId = match[1];
+    const emoteName = match[2];
+    parts.push(
+      <img
+        key={`${emoteId}-${match.index}`}
+        src={getEmoteUrl(emoteId)}
+        alt={emoteName}
+        title={emoteName}
+        className="inline-block align-middle"
+        style={{ width: '28px', height: '28px' }}
+        onError={(e) => {
+          // If emote fails to load, show the text instead
+          (e.target as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after last emote
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : content;
 }
 
 interface LastEvent {
@@ -106,14 +164,51 @@ function GoalBar({
   );
 }
 
-function ChatMessageItem({ message }: { message: ChatMessage }) {
+function ChatMessageItem({ message, countryCode }: { message: ChatMessage; countryCode?: string | null }) {
   const username = message.sender?.username || "Unknown";
   const content = message.content || "";
+  const profilePicture = message.sender?.profile_picture;
 
   return (
-    <div className="flex flex-col bg-slate-800 rounded-lg px-3 py-2 border border-slate-700">
-      <span className="font-bold text-green-400">{username}</span>
-      <span className="text-gray-100 break-words w-full">{content}</span>
+    <div className="bg-slate-800 rounded-lg px-3 py-2 border border-slate-700">
+      {/* Header: Profile Picture, Flag, Username */}
+      <div className="flex items-center gap-2 mb-1">
+        {/* Profile Picture - 30x30px */}
+        {profilePicture ? (
+          <img
+            src={profilePicture}
+            alt={username}
+            className="rounded-full object-cover border border-green-400 shrink-0"
+            style={{ width: '30px', height: '30px' }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%2353fc18'/></svg>";
+            }}
+          />
+        ) : (
+          <div
+            className="rounded-full bg-green-400 flex items-center justify-center text-slate-900 font-bold text-xs shrink-0"
+            style={{ width: '30px', height: '30px' }}
+          >
+            {username.charAt(0).toUpperCase()}
+          </div>
+        )}
+
+        {/* Flag - 30x30px */}
+        {countryCode && (
+          <img
+            src={getFlagUrl(countryCode)}
+            alt={countryCode}
+            className="object-cover rounded-sm shrink-0"
+            style={{ width: '30px', height: '30px' }}
+          />
+        )}
+
+        {/* Username */}
+        <span className="font-bold text-green-400">{username}</span>
+      </div>
+
+      {/* Message - below the header (with emote rendering) */}
+      <p className="text-gray-100 break-words">{renderMessageContent(content)}</p>
     </div>
   );
 }
@@ -128,6 +223,34 @@ function CombinedOverlay() {
   const [tips, setTips] = useState<string[]>([]);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(true); // Audio works (notification sound plays)
+  const [userCountries, setUserCountries] = useState<UserCountryCache>({});
+
+  // Fetch country for a specific user
+  const fetchUserCountry = async (username: string) => {
+    // Skip if already cached (including null = no country)
+    if (username in userCountries) return;
+
+    try {
+      const response = await fetch(`/api/stats/${username}`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserCountries(prev => ({
+          ...prev,
+          [username]: data.country || null
+        }));
+      } else {
+        setUserCountries(prev => ({
+          ...prev,
+          [username]: null
+        }));
+      }
+    } catch {
+      setUserCountries(prev => ({
+        ...prev,
+        [username]: null
+      }));
+    }
+  };
 
   const handleEnableAudio = () => {
     unlockAudio();
@@ -180,6 +303,14 @@ function CombinedOverlay() {
           lastMessageTimeRef.current = now;
         }
         lastMessageCountRef.current = data.length;
+
+        // Fetch countries for any new users
+        for (const msg of data) {
+          const username = msg.sender?.username;
+          if (username && !(username in userCountries)) {
+            fetchUserCountry(username);
+          }
+        }
 
         setMessages(data);
       } catch (error) {
@@ -395,6 +526,7 @@ function CombinedOverlay() {
                   <ChatMessageItem
                     key={msg.id || msg.message_id || index}
                     message={msg}
+                    countryCode={msg.sender?.username ? userCountries[msg.sender.username] : null}
                   />
                 ))}
             </div>

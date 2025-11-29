@@ -4,10 +4,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun --hot index.ts",
+    "start": "bun run build:css && bun index.ts",
     "build:css": "bunx @tailwindcss/cli -i ./styles.css -o ./public/styles.css --minify",
     "watch:css": "bunx @tailwindcss/cli -i ./styles.css -o ./public/styles.css --watch",
-    "dev": "bun run build:css && bun --hot index.ts"
+    "dev": "bun run build:css && bun --hot index.ts",
+    "dev:no-hmr": "bun run build:css && bun index.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

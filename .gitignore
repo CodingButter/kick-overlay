@@ -17,6 +17,12 @@ user_voices.json
 goals.json
 tips.json
 
+# User uploaded files
+public/uploads/
+
+# AI prompt templates (may contain personal info)
+claude_prompt_template.ts
+
 # Temp/debug files
 login_response.txt
 index

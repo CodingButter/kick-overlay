@@ -1,0 +1,18 @@
+{
+  "example_user": {
+    "voiceId": "EXAVITQu4vr4xnSDxMaL",
+    "dropPoints": 100,
+    "totalDrops": 5,
+    "channelPoints": 500,
+    "dropImage": null,
+    "country": "US",
+    "powerups": {
+      "tnt": 1,
+      "powerdrop": 0,
+      "shield": 0,
+      "magnet": 0,
+      "ghost": 0,
+      "boost": 0
+    }
+  }
+}
