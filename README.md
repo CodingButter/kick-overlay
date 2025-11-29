@@ -220,27 +220,7 @@ POINTS_COST_SAY=500
 
 ### Drop Game Configuration
 
-Edit `config/dropgame.config.json` for physics settings:
-
-```json
-{
-  "platform": {
-    "widthRatio": 0.125,
-    "heightRatio": 0.02,
-    "bottomOffset": 50
-  },
-  "avatar": {
-    "size": 100,
-    "gravity": 5,
-    "bounceDecay": 0.6
-  },
-  "scoring": {
-    "basePoints": 10,
-    "centerBonusPoints": 100,
-    "perfectLandingMultiplier": 2
-  }
-}
-```
+Drop game settings (physics, scoring, powerups) are configured via the Admin Dashboard at `/admin`. All settings are stored in the database.
 
 ---
 
@@ -520,10 +500,6 @@ kick-overlay/
 ├── drizzle.config.ts     # Drizzle ORM configuration
 ├── .env                  # Environment variables (create from .env.example)
 ├── .env.example          # Example environment file
-│
-├── config/               # Configuration files
-│   ├── dropgame.config.json   # Drop game physics settings
-│   └── tokens.json            # OAuth tokens (auto-generated)
 │
 ├── data/                 # Database storage
 │   └── kick-overlay.db   # SQLite database

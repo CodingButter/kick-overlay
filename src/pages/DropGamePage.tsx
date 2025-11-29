@@ -334,14 +334,22 @@ export function DropGamePage() {
         const pollDrops = async () => {
             try {
                 const res = await fetch("/api/dropgame/queue");
-                const drops: DropEvent[] = await res.json();
+                const data = await res.json();
+                const drops: DropEvent[] = data.drops || [];
+
+                // Always update config from server (ensures admin changes take effect immediately)
+                if (data.config) {
+                    setConfig((prev) => ({ ...prev, ...data.config }));
+                }
 
                 if (drops.length > 0 && containerRef.current) {
                     const rect = containerRef.current.getBoundingClientRect();
+                    // Use the latest config from the response
+                    const currentConfig = data.config ? { ...config, ...data.config } : config;
 
                     // Show platform if not visible
                     if (platformX === null) {
-                        const platformWidth = rect.width * config.platformWidthRatio;
+                        const platformWidth = rect.width * currentConfig.platformWidthRatio;
                         const newPlatformX = Math.random() * (rect.width - platformWidth);
                         setPlatformX(newPlatformX);
                     }
@@ -349,15 +357,15 @@ export function DropGamePage() {
                     // Add new droppers
                     const newDroppers: Dropper[] = drops.map((drop) => {
                         // Start with a random velocity between min and max
-                        const speed = config.minHorizontalVelocity + Math.random() * (config.maxHorizontalVelocity - config.minHorizontalVelocity);
+                        const speed = currentConfig.minHorizontalVelocity + Math.random() * (currentConfig.maxHorizontalVelocity - currentConfig.minHorizontalVelocity);
                         const direction = Math.random() > 0.5 ? 1 : -1;
                         return {
                             id: `${drop.username}-${Date.now()}-${Math.random()}`,
                             username: drop.username,
                             avatarUrl: drop.avatarUrl,
                             emoteUrl: drop.emoteUrl,
-                            x: Math.random() * (rect.width - config.avatarSize),
-                            y: -config.avatarSize,
+                            x: Math.random() * (rect.width - currentConfig.avatarSize),
+                            y: -currentConfig.avatarSize,
                             vx: speed * direction,
                             vy: 0,
                             landed: false,

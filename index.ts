@@ -1,6 +1,6 @@
 import commands, { addDropPoints, addChannelPoints, getUserData, saveUserData, getAllUserData, isAdmin, POWERUPS, PowerupType, getUserPowerups, buyPowerup } from './server/commands';
 import { generateSystemPrompt, generateUserPrompt } from './server/claude_prompt_template';
-import { db, queries, migrateFromJson, seedDefaultOverlaySettings, seedDefaultPowerups, seedDefaultTips, seedDefaultGoals, getOverlaySettingsMap, getPowerupsFromDb, getTipsArray, getGoalsData } from './server/db';
+import { db, queries, migrateFromJson, seedDefaultOverlaySettings, seedDefaultPowerups, seedDefaultTips, seedDefaultGoals, getOverlaySettingsMap, getPowerupsFromDb, getTipsArray, getGoalsData, isAIChatbotEnabled, getAICooldownMs, getAIProjectDirectory } from './server/db';
 
 // Run database migration on startup (imports from JSON files if they exist)
 migrateFromJson().catch(err => console.error('Migration error:', err));
@@ -98,46 +98,62 @@ interface DropGameConfig {
 
 let dropGameConfig: DropGameConfig | null = null;
 
+// Default drop game config
+const DEFAULT_DROPGAME_CONFIG: DropGameConfig = {
+  game: {
+    platformWidthRatio: 0.125,
+    avatarSize: 60,
+    cleanupDelay: 10000,
+    gravity: 5,
+    bounceDamping: 0.85,
+    minHorizontalVelocity: 100,
+    maxHorizontalVelocity: 500,
+    horizontalDrift: 100,
+    usernameFontSize: 24,
+  },
+  scoring: {
+    basePoints: 10,
+    centerBonusPoints: 100,
+  },
+  physics: {
+    explosionRadius: 2000,
+    explosionForce: 1500,
+    explosionUpwardBoost: 400,
+    ghostDuration: 5000,
+    boostDuration: 3000,
+    powerDropGravityMultiplier: 3,
+  },
+  powerups: {},
+};
+
 async function loadDropGameConfig(): Promise<DropGameConfig> {
   if (dropGameConfig) return dropGameConfig;
   try {
-    const file = Bun.file('./config/dropgame.config.json');
-    if (await file.exists()) {
-      dropGameConfig = await file.json();
-      console.log('Loaded dropgame.config.json');
+    // Load from database
+    const setting = queries.getOverlaySetting.get('dropgame_config');
+    if (setting) {
+      dropGameConfig = JSON.parse(setting.value);
+      console.log('Loaded drop game config from database');
       return dropGameConfig!;
     }
   } catch (error) {
-    console.error('Error loading dropgame.config.json:', error);
+    console.error('Error loading drop game config:', error);
   }
-  // Return defaults if file doesn't exist
-  dropGameConfig = {
-    game: {
-      platformWidthRatio: 0.125,
-      avatarSize: 60,
-      cleanupDelay: 10000,
-      gravity: 5,
-      bounceDamping: 0.85,
-      minHorizontalVelocity: 100,
-      maxHorizontalVelocity: 500,
-      horizontalDrift: 100,
-      usernameFontSize: 24,
-    },
-    scoring: {
-      basePoints: 10,
-      centerBonusPoints: 100,
-    },
-    physics: {
-      explosionRadius: 2000,
-      explosionForce: 1500,
-      explosionUpwardBoost: 400,
-      ghostDuration: 5000,
-      boostDuration: 3000,
-      powerDropGravityMultiplier: 3,
-    },
-    powerups: {},
-  };
+  // Return defaults and save to database
+  dropGameConfig = { ...DEFAULT_DROPGAME_CONFIG };
+  queries.upsertOverlaySetting.run('dropgame_config', JSON.stringify(dropGameConfig), 'Drop game physics and scoring configuration');
+  console.log('Initialized default drop game config in database');
   return dropGameConfig;
+}
+
+function saveDropGameConfig(config: DropGameConfig): void {
+  try {
+    queries.upsertOverlaySetting.run('dropgame_config', JSON.stringify(config), 'Drop game physics and scoring configuration');
+    dropGameConfig = config;
+    console.log('Saved drop game config to database');
+  } catch (error) {
+    console.error('Error saving drop game config:', error);
+  }
 }
 
 // Load config on startup
@@ -152,8 +168,9 @@ interface DropEvent {
 }
 const dropQueue: DropEvent[] = [];
 
-// Track active players in the drop game (haven't landed yet)
-const activeDroppers: Set<string> = new Set();
+// Track active players in the drop game (haven't landed yet) with timestamps for timeout
+const activeDroppers: Map<string, number> = new Map(); // username -> timestamp when drop started
+const DROP_TIMEOUT_MS = 90000; // 90 seconds (1.5 min) - auto-clear if frontend doesn't report landing
 
 // Powerup event queue - activated during a drop
 interface PowerupEvent {
@@ -162,6 +179,20 @@ interface PowerupEvent {
   timestamp: number;
 }
 const powerupQueue: PowerupEvent[] = [];
+
+// Function to clean up stale droppers (called periodically)
+function cleanupStaleDroppers(): void {
+  const now = Date.now();
+  for (const [username, startTime] of activeDroppers.entries()) {
+    if (now - startTime > DROP_TIMEOUT_MS) {
+      activeDroppers.delete(username);
+      console.log(`Cleaned up stale dropper: ${username} (timed out after ${DROP_TIMEOUT_MS}ms)`);
+    }
+  }
+}
+
+// Run cleanup every 10 seconds
+setInterval(cleanupStaleDroppers, 10000);
 
 // Function to check if a player is already dropping
 function isPlayerDropping(username: string): boolean {
@@ -174,6 +205,14 @@ function playerLanded(username: string): void {
   console.log(`Player ${username} landed and removed from active droppers`);
 }
 
+// Function to clear all active droppers (admin reset)
+function clearAllDroppers(): void {
+  const count = activeDroppers.size;
+  activeDroppers.clear();
+  dropQueue.length = 0;
+  console.log(`Cleared ${count} active droppers and drop queue`);
+}
+
 // Function to queue a drop
 function queueDrop(username: string, avatarUrl: string, emoteUrl?: string, activePowerup?: PowerupType): boolean {
   const lowerUsername = username.toLowerCase();
@@ -181,7 +220,7 @@ function queueDrop(username: string, avatarUrl: string, emoteUrl?: string, activ
     console.log(`Player ${username} already has an active dropper, ignoring drop request`);
     return false;
   }
-  activeDroppers.add(lowerUsername);
+  activeDroppers.set(lowerUsername, Date.now());
   dropQueue.push({ username, avatarUrl, emoteUrl, activePowerup });
   console.log(`Drop queued for ${username}${activePowerup ? ` with ${activePowerup}` : ''} (queue size: ${dropQueue.length}, active: ${activeDroppers.size})`);
   return true;
@@ -194,26 +233,44 @@ function queuePowerup(username: string, powerupId: PowerupType): void {
 }
 
 const PORT = 5050;
-const REDIRECT_URI = `http://localhost:${PORT}/callback`;
 
 // Public URL for all links and webhook (derived from PUBLIC_URL env var)
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+const REDIRECT_URI = `${PUBLIC_URL}/callback`;
 const WEBHOOK_URL = `${PUBLIC_URL}/webhook`;
 
 // Store tokens and chat messages in memory
 let storedTokens: any = null;
 let chatMessages: any[] = [];
 
-// Load tokens from file on startup
-async function loadStoredTokens(): Promise<void> {
+// Load tokens from database on startup
+function loadStoredTokens(): void {
   try {
-    const file = Bun.file('./config/tokens.json');
-    if (await file.exists()) {
-      storedTokens = await file.json();
-      console.log('Loaded tokens from tokens.json');
+    const dbToken = queries.getToken.get('kick');
+    if (dbToken) {
+      storedTokens = {
+        access_token: dbToken.access_token,
+        refresh_token: dbToken.refresh_token,
+        expires_at: dbToken.expires_at,
+        scope: dbToken.scope,
+      };
+      console.log('Loaded tokens from database');
+    } else {
+      console.log('No tokens found in database - please authenticate at', PUBLIC_URL);
     }
   } catch (error) {
     console.error('Error loading tokens:', error);
+  }
+}
+
+// Save tokens to database
+function saveTokensToDb(tokens: any): void {
+  try {
+    const expiresAt = tokens.expires_at || new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
+    queries.upsertToken.run('kick', tokens.access_token, tokens.refresh_token || null, expiresAt, tokens.scope || null);
+    console.log('Saved tokens to database');
+  } catch (error) {
+    console.error('Error saving tokens to database:', error);
   }
 }
 
@@ -250,8 +307,8 @@ async function refreshAccessToken(): Promise<boolean> {
     const newTokens = await response.json();
     storedTokens = newTokens;
 
-    // Save new tokens to file
-    await Bun.write('./config/tokens.json', JSON.stringify(newTokens, null, 2));
+    // Save new tokens to database
+    saveTokensToDb(newTokens);
     console.log('Access token refreshed successfully');
     return true;
   } catch (error) {
@@ -324,8 +381,8 @@ async function processAIResponse(
   messageContent: string,
   avatarUrl?: string
 ): Promise<string | null> {
-  // Check if AI is enabled
-  if (process.env.AI_ENABLED !== 'true') {
+  // Check if AI is enabled in database settings
+  if (!isAIChatbotEnabled()) {
     return null;
   }
 
@@ -335,15 +392,18 @@ async function processAIResponse(
     return null;
   }
 
-  // Per-user cooldown (10 seconds)
+  // Per-user cooldown (configurable via database)
   const now = Date.now();
+  const cooldownMs = getAICooldownMs();
   const lastRequest = aiCooldown.get(username);
-  if (lastRequest && now - lastRequest < 10000) {
+  if (lastRequest && now - lastRequest < cooldownMs) {
     console.log(`AI: User ${username} on cooldown`);
     return null;
   }
 
-  const projectDir = process.env.PROJECT_DIRECTORY || '.';
+  // Get project directory from database settings (empty string = no project context)
+  const projectDir = getAIProjectDirectory() || process.cwd();
+  const hasProjectContext = getAIProjectDirectory() !== '';
   const streamerUsername = process.env.KICK_USERNAME || 'codingbutter';
 
   try {
@@ -380,7 +440,7 @@ async function processAIResponse(
     // Generate prompts
     const systemPrompt = generateSystemPrompt({
       streamerUsername,
-      projectDirectory: projectDir,
+      projectDirectory: hasProjectContext ? projectDir : undefined,
       commands: commandsList,
       emotes: emotesList,
     });
@@ -398,22 +458,38 @@ async function processAIResponse(
 
     console.log(`AI: Processing message from ${username}: "${messageContent.substring(0, 50)}..."`);
     console.log('AI: User prompt being sent:', userPrompt.substring(0, 500));
+    console.log(`AI: Project context ${hasProjectContext ? 'enabled' : 'disabled'}${hasProjectContext ? ` (${projectDir})` : ''}`);
 
-    // Run Claude CLI with the -p flag
-    // Using allowed tools for web search and project file access
-    const proc = Bun.spawn([
+    // Build Claude CLI arguments - pass prompt via stdin to handle multiline properly
+    const claudeArgs = [
       'claude',
       '-p',
       '--system-prompt', systemPrompt,
-      '--allowedTools', 'WebSearch,Read,Glob,Grep',
-      '--add-dir', projectDir,
       '--model', 'sonnet',
-      userPrompt,
-    ], {
-      cwd: projectDir,
+    ];
+
+    // Only add project-related tools and directory if project context is configured
+    if (hasProjectContext) {
+      claudeArgs.push('--allowedTools', 'WebSearch,Read,Glob,Grep');
+      claudeArgs.push('--add-dir', projectDir);
+    } else {
+      claudeArgs.push('--allowedTools', 'WebSearch');
+    }
+
+    // Run Claude CLI with the -p flag, passing prompt via stdin using pipe
+    const proc = Bun.spawn(claudeArgs, {
+      cwd: hasProjectContext ? projectDir : process.cwd(),
+      stdin: 'pipe',
       stdout: 'pipe',
       stderr: 'pipe',
     });
+
+    // Write the prompt to stdin and close it
+    const stdinWriter = proc.stdin;
+    if (stdinWriter) {
+      stdinWriter.write(userPrompt);
+      stdinWriter.end();
+    }
 
     // Set a timeout (30 seconds)
     const timeoutPromise = new Promise<null>((resolve) => {
@@ -985,8 +1061,8 @@ Bun.serve({
           console.log('Tokens received:', tokens);
           storedTokens = tokens;
 
-          // Save tokens to file for use in overlay app
-          await Bun.write('./config/tokens.json', JSON.stringify(tokens, null, 2));
+          // Save tokens to database
+          saveTokensToDb(tokens);
 
           // Get user info and subscribe to events
           let userInfo = null;
@@ -1015,7 +1091,7 @@ Bun.serve({
               <head><title>OAuth Success</title></head>
               <body>
                 <h1>Authentication Successful!</h1>
-                <p>Your tokens have been saved to <code>tokens.json</code></p>
+                <p>Your tokens have been saved to the database</p>
                 <h3>Token Details:</h3>
                 <pre>${JSON.stringify(tokens, null, 2)}</pre>
                 ${userInfo ? `<h3>User Info:</h3><pre>${JSON.stringify(userInfo, null, 2)}</pre>` : ''}
@@ -1150,6 +1226,7 @@ Bun.serve({
                   queueTTS: queueTTS,
                   queueDrop: queueDrop,
                   queuePowerup: queuePowerup,
+                  isPlayerDropping: isPlayerDropping,
                 });
               }
             } else if (!commandKey.startsWith('!') && !commandKey.startsWith('/')) {
@@ -1368,11 +1445,28 @@ Bun.serve({
       },
     },
     '/api/dropgame/queue': {
-      GET: () => {
-        // Return and clear the queue
+      GET: async () => {
+        // Return and clear the queue, include latest config
         const drops = [...dropQueue];
         dropQueue.length = 0;
-        return Response.json(drops);
+        const config = await loadDropGameConfig();
+        return Response.json({
+          drops,
+          config: {
+            platformWidthRatio: config.game.platformWidthRatio,
+            avatarSize: config.game.avatarSize,
+            cleanupDelay: config.game.cleanupDelay,
+            gravity: config.game.gravity,
+            bounceDamping: config.game.bounceDamping,
+            minHorizontalVelocity: config.game.minHorizontalVelocity,
+            maxHorizontalVelocity: config.game.maxHorizontalVelocity,
+            horizontalDrift: config.game.horizontalDrift,
+            centerBonusPoints: config.scoring.centerBonusPoints,
+            basePoints: config.scoring.basePoints,
+            usernameFontSize: config.game.usernameFontSize,
+            physics: config.physics,
+          },
+        });
       },
     },
     '/api/dropgame/score': {
@@ -1609,13 +1703,29 @@ Bun.serve({
         }
         try {
           const body = await req.json() as DropGameConfig;
-          await Bun.write('./config/dropgame.config.json', JSON.stringify(body, null, 2));
-          // Invalidate cache to reload on next access
-          dropGameConfig = null;
+          saveDropGameConfig(body);
           return Response.json({ success: true });
         } catch (error) {
           return Response.json({ error: 'Invalid request' }, { status: 400 });
         }
+      },
+      DELETE: (req) => {
+        if (!verifyAdminSession(req)) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        // Reset drop game state - clear all active droppers and queue
+        clearAllDroppers();
+        return Response.json({ success: true, message: 'Drop game state cleared' });
+      },
+    },
+    // Admin users list
+    '/api/admin/users': {
+      GET: (req) => {
+        if (!verifyAdminSession(req)) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const users = queries.getAllUsersWithPoints.all();
+        return Response.json(users);
       },
     },
   },
@@ -1648,6 +1758,76 @@ Bun.serve({
           return Response.json({ error: 'Invalid request' }, { status: 400 });
         }
       })();
+    }
+
+    // Admin user update/delete API: PUT/DELETE /api/admin/users/:id
+    const adminUserMatch = path.match(/^\/api\/admin\/users\/(\d+)$/);
+    if (adminUserMatch) {
+      if (!verifyAdminSession(req)) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const [, userIdStr] = adminUserMatch;
+      const userId = parseInt(userIdStr!, 10);
+
+      if (req.method === 'PUT') {
+        return (async () => {
+          try {
+            const body = await req.json() as {
+              voice_id?: string | null;
+              drop_image?: string | null;
+              country?: string | null;
+              channel_points?: number;
+              drop_points?: number;
+              total_drops?: number;
+            };
+
+            // Update user profile
+            const user = queries.getUserById.get(userId);
+            if (!user) {
+              return Response.json({ error: 'User not found' }, { status: 404 });
+            }
+
+            // Update user fields if provided
+            queries.updateUser.run(
+              body.voice_id !== undefined ? body.voice_id : user.voice_id,
+              body.drop_image !== undefined ? body.drop_image : user.drop_image,
+              body.country !== undefined ? body.country : user.country,
+              user.username
+            );
+
+            // Update points if provided
+            if (body.channel_points !== undefined || body.drop_points !== undefined || body.total_drops !== undefined) {
+              const currentPoints = queries.getPoints.get(userId);
+              queries.updateUserPoints.run(
+                body.channel_points !== undefined ? body.channel_points : (currentPoints?.channel_points || 0),
+                body.drop_points !== undefined ? body.drop_points : (currentPoints?.drop_points || 0),
+                body.total_drops !== undefined ? body.total_drops : (currentPoints?.total_drops || 0),
+                userId
+              );
+            }
+
+            return Response.json({ success: true });
+          } catch (error) {
+            console.error('User update error:', error);
+            return Response.json({ error: 'Invalid request' }, { status: 400 });
+          }
+        })();
+      }
+
+      if (req.method === 'DELETE') {
+        return (async () => {
+          try {
+            // Delete user's powerups, points, and user record
+            queries.deleteUserPowerups.run(userId);
+            queries.deleteUserPoints.run(userId);
+            queries.deleteUser.run(userId);
+            return Response.json({ success: true });
+          } catch (error) {
+            console.error('User delete error:', error);
+            return Response.json({ error: 'Failed to delete user' }, { status: 500 });
+          }
+        })();
+      }
     }
 
     // Verify generate API: POST /api/verify/generate/:username

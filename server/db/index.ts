@@ -85,6 +85,19 @@ interface LeaderboardRow {
   total_points: number;
 }
 
+interface AdminUserRow {
+  id: number;
+  username: string;
+  voice_id: string | null;
+  drop_image: string | null;
+  country: string | null;
+  created_at: string;
+  updated_at: string;
+  channel_points: number;
+  drop_points: number;
+  total_drops: number;
+}
+
 // Prepared statements for common operations
 export const queries = {
   // Users
@@ -192,6 +205,37 @@ export const queries = {
     ORDER BY total_points DESC
     LIMIT 50
   `),
+
+  // Admin: get all users with points
+  getAllUsersWithPoints: db.prepare<AdminUserRow, []>(`
+    SELECT u.id, u.username, u.voice_id, u.drop_image, u.country, u.created_at, u.updated_at,
+           COALESCE(p.channel_points, 0) as channel_points,
+           COALESCE(p.drop_points, 0) as drop_points,
+           COALESCE(p.total_drops, 0) as total_drops
+    FROM users u
+    LEFT JOIN user_points p ON u.id = p.user_id
+    ORDER BY (COALESCE(p.channel_points, 0) + COALESCE(p.drop_points, 0)) DESC
+  `),
+
+  // Admin: update user points
+  updateUserPoints: db.prepare<null, [number, number, number, number]>(
+    'UPDATE user_points SET channel_points = ?, drop_points = ?, total_drops = ?, last_updated = CURRENT_TIMESTAMP WHERE user_id = ?'
+  ),
+
+  // Admin: delete user
+  deleteUser: db.prepare<null, [number]>(
+    'DELETE FROM users WHERE id = ?'
+  ),
+
+  // Admin: delete user points
+  deleteUserPoints: db.prepare<null, [number]>(
+    'DELETE FROM user_points WHERE user_id = ?'
+  ),
+
+  // Admin: delete user powerups
+  deleteUserPowerups: db.prepare<null, [number]>(
+    'DELETE FROM powerup_inventory WHERE user_id = ?'
+  ),
 
   // Drop history
   recordDrop: db.prepare<null, [number, number, number, string | null]>(
@@ -443,16 +487,15 @@ export function getPowerupsFromDb(): Record<string, { id: string; name: string; 
   return result;
 }
 
-// Migration helper - import from JSON files
+// Migration helper - import user data from legacy JSON file (if exists)
 export async function migrateFromJson() {
   const userDataPath = path.join(import.meta.dir, '../../user_data.json');
-  const tokensPath = path.join(import.meta.dir, '../../tokens.json');
 
   // Check if already migrated (has users in database)
   const existingUsers = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
   const alreadyMigrated = existingUsers.count > 0;
 
-  // Migrate user data
+  // Migrate user data from legacy JSON file
   if (existsSync(userDataPath) && !alreadyMigrated) {
     try {
       const userData = JSON.parse(readFileSync(userDataPath, 'utf-8'));
@@ -488,19 +531,6 @@ export async function migrateFromJson() {
       console.error('❌ Failed to migrate user_data.json:', err);
     }
   }
-
-  // Migrate tokens
-  if (existsSync(tokensPath)) {
-    try {
-      const tokens = JSON.parse(readFileSync(tokensPath, 'utf-8'));
-      const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
-
-      queries.upsertToken.run('kick', tokens.access_token, tokens.refresh_token || null, expiresAt, tokens.scope || null);
-      console.log('✅ Migrated tokens.json to SQLite');
-    } catch (err) {
-      console.error('❌ Failed to migrate tokens.json:', err);
-    }
-  }
 }
 
 // Default overlay settings for seeding
@@ -508,6 +538,9 @@ const DEFAULT_OVERLAY_SETTINGS = [
   { key: 'notification_sound_threshold', value: '120000', description: 'Time in ms of silence before playing new message sound (default: 2 minutes)' },
   { key: 'tts_enabled', value: 'true', description: 'Enable text-to-speech for chat messages' },
   { key: 'drop_game_enabled', value: 'true', description: 'Enable the drop game feature' },
+  { key: 'ai_chatbot_enabled', value: 'false', description: 'Enable AI chatbot responses to chat messages' },
+  { key: 'ai_cooldown_seconds', value: '10', description: 'Cooldown between AI responses per user (in seconds)' },
+  { key: 'ai_project_directory', value: '', description: 'Project directory for Claude AI to reference (leave empty to disable project context)' },
 ];
 
 // Seed default overlay settings if none exist
@@ -529,6 +562,25 @@ export function getOverlaySettingsMap(): Record<string, string> {
     result[row.key] = row.value;
   }
   return result;
+}
+
+// Check if AI chatbot is enabled
+export function isAIChatbotEnabled(): boolean {
+  const setting = queries.getOverlaySetting.get('ai_chatbot_enabled');
+  return setting?.value === 'true';
+}
+
+// Get AI cooldown in milliseconds
+export function getAICooldownMs(): number {
+  const setting = queries.getOverlaySetting.get('ai_cooldown_seconds');
+  const seconds = parseInt(setting?.value || '10', 10);
+  return seconds * 1000;
+}
+
+// Get AI project directory (empty string if not configured)
+export function getAIProjectDirectory(): string {
+  const setting = queries.getOverlaySetting.get('ai_project_directory');
+  return setting?.value || '';
 }
 
 // Default tips for seeding
@@ -618,4 +670,4 @@ export function getGoalsData(): { followers: { current: number; target: number }
 }
 
 // Export types
-export type { UserRow, UserPointsRow, PowerupRow, SessionRow, TokenRow, VerificationRow, LeaderboardRow, PowerupConfigRow, OverlaySettingRow, AdminSessionRow, TipRow, GoalRow };
+export type { UserRow, UserPointsRow, PowerupRow, SessionRow, TokenRow, VerificationRow, LeaderboardRow, AdminUserRow, PowerupConfigRow, OverlaySettingRow, AdminSessionRow, TipRow, GoalRow };

@@ -40,12 +40,23 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, disabled, style, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+
+    // Apply inline styles for disabled state to ensure visibility
+    const disabledStyle = disabled ? {
+      backgroundColor: '#475569', // slate-600
+      opacity: 0.6,
+      cursor: 'not-allowed',
+      ...style,
+    } : style;
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        disabled={disabled}
+        style={disabledStyle}
         {...props}
       />
     )

@@ -12,12 +12,15 @@ type QueueTTS = (text: string, voiceId?: string) => Promise<boolean>;
 type QueueDrop = (username: string, avatarUrl: string, emoteUrl?: string, activePowerup?: PowerupType) => boolean;
 type QueuePowerup = (username: string, powerupId: PowerupType) => void;
 
+type IsPlayerDropping = (username: string) => boolean;
+
 interface CommandHandler {
     message: Message;
     sendChat: ChatSend;
     queueTTS?: QueueTTS;
     queueDrop?: QueueDrop;
     queuePowerup?: QueuePowerup;
+    isPlayerDropping?: IsPlayerDropping;
 }
 
 // Public URL for all links (derived from PUBLIC_URL env var)
@@ -632,8 +635,11 @@ const commands: Record<string, Command> = {
         cooldown: 1000,
         description: "Activate TNT powerup during your drop to push other players away",
         arguments: "",
-        handler: async ({ message, sendChat, queuePowerup }: CommandHandler) => {
+        handler: async ({ message, sendChat, queuePowerup, isPlayerDropping }: CommandHandler) => {
             const username = message.user.username;
+            if (!isPlayerDropping || !isPlayerDropping(username)) {
+                return; // Silently ignore if not dropping
+            }
             const result = usePowerup(username, 'tnt');
             if (result.success) {
                 if (queuePowerup) {
@@ -649,8 +655,11 @@ const commands: Record<string, Command> = {
         cooldown: 1000,
         description: "Activate Power Drop to drop straight down at high speed",
         arguments: "",
-        handler: async ({ message, sendChat, queuePowerup }: CommandHandler) => {
+        handler: async ({ message, sendChat, queuePowerup, isPlayerDropping }: CommandHandler) => {
             const username = message.user.username;
+            if (!isPlayerDropping || !isPlayerDropping(username)) {
+                return; // Silently ignore if not dropping
+            }
             const result = usePowerup(username, 'powerdrop');
             if (result.success) {
                 if (queuePowerup) {
@@ -666,8 +675,11 @@ const commands: Record<string, Command> = {
         cooldown: 1000,
         description: "Activate Shield to protect from other players' powerups",
         arguments: "",
-        handler: async ({ message, sendChat, queuePowerup }: CommandHandler) => {
+        handler: async ({ message, sendChat, queuePowerup, isPlayerDropping }: CommandHandler) => {
             const username = message.user.username;
+            if (!isPlayerDropping || !isPlayerDropping(username)) {
+                return; // Silently ignore if not dropping
+            }
             const result = usePowerup(username, 'shield');
             if (result.success) {
                 if (queuePowerup) {
@@ -683,8 +695,11 @@ const commands: Record<string, Command> = {
         cooldown: 1000,
         description: "Activate Magnet to pull towards the platform center",
         arguments: "",
-        handler: async ({ message, sendChat, queuePowerup }: CommandHandler) => {
+        handler: async ({ message, sendChat, queuePowerup, isPlayerDropping }: CommandHandler) => {
             const username = message.user.username;
+            if (!isPlayerDropping || !isPlayerDropping(username)) {
+                return; // Silently ignore if not dropping
+            }
             const result = usePowerup(username, 'magnet');
             if (result.success) {
                 if (queuePowerup) {
@@ -700,8 +715,11 @@ const commands: Record<string, Command> = {
         cooldown: 1000,
         description: "Activate Ghost to pass through walls",
         arguments: "",
-        handler: async ({ message, sendChat, queuePowerup }: CommandHandler) => {
+        handler: async ({ message, sendChat, queuePowerup, isPlayerDropping }: CommandHandler) => {
             const username = message.user.username;
+            if (!isPlayerDropping || !isPlayerDropping(username)) {
+                return; // Silently ignore if not dropping
+            }
             const result = usePowerup(username, 'ghost');
             if (result.success) {
                 if (queuePowerup) {
@@ -717,8 +735,11 @@ const commands: Record<string, Command> = {
         cooldown: 1000,
         description: "Activate Speed Boost to double your horizontal speed",
         arguments: "",
-        handler: async ({ message, sendChat, queuePowerup }: CommandHandler) => {
+        handler: async ({ message, sendChat, queuePowerup, isPlayerDropping }: CommandHandler) => {
             const username = message.user.username;
+            if (!isPlayerDropping || !isPlayerDropping(username)) {
+                return; // Silently ignore if not dropping
+            }
             const result = usePowerup(username, 'boost');
             if (result.success) {
                 if (queuePowerup) {

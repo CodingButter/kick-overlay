@@ -10,9 +10,6 @@ bun.lock
 .env.production.local
 .env.local
 
-# Config files with secrets
-config/tokens.json
-
 # Database (generated at runtime)
 data/
 
