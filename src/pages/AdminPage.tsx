@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
-import { Lock, Settings, Zap, Gamepad2, LogOut, Save, RefreshCw, FolderOpen, Users, Trash2, Search, X, Check, CheckCircle } from 'lucide-react';
+import { Lock, Settings, Zap, Gamepad2, LogOut, Save, RefreshCw, FolderOpen, Users, Trash2, Search, X, Check, CheckCircle, Palette, Type } from 'lucide-react';
+import { FontSelector } from '@/components/FontSelector';
+import { useTheme, type ThemeConfig } from '@/context/ThemeContext';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -86,30 +88,30 @@ function LoginForm({ onLogin }: { onLogin: (token: string) => void }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="bg-slate-800 rounded-xl p-8 w-full max-w-md border border-slate-700">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl p-8 w-full max-w-md border border-border">
         <div className="flex items-center justify-center gap-3 mb-6">
-          <Lock className="w-8 h-8 text-green-400" />
-          <h1 className="text-2xl font-bold text-white">Admin Login</h1>
+          <Lock className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl font-bold text-foreground">Admin Login</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Admin Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500"
+              className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-primary"
               placeholder="Enter admin password"
               autoFocus
             />
           </div>
 
           {error && (
-            <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-2 rounded-lg text-sm">
+            <div className="bg-destructive/20 border border-destructive text-destructive px-4 py-2 rounded-lg text-sm">
               {error}
             </div>
           )}
@@ -117,7 +119,7 @@ function LoginForm({ onLogin }: { onLogin: (token: string) => void }) {
           <button
             type="submit"
             disabled={loading || !password}
-            className="w-full bg-green-500 hover:bg-green-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors"
+            className="w-full bg-primary hover:bg-primary/80 disabled:bg-muted disabled:cursor-not-allowed text-foreground font-medium py-3 rounded-lg transition-colors"
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
@@ -222,7 +224,7 @@ function SettingsTab({ token }: { token: string }) {
   };
 
   if (loading) {
-    return <div className="text-center py-8 text-slate-400">Loading settings...</div>;
+    return <div className="text-center py-8 text-muted-foreground">Loading settings...</div>;
   }
 
   // Separate AI settings from other settings
@@ -235,15 +237,15 @@ function SettingsTab({ token }: { token: string }) {
     const numValue = parseInt(editValues[setting.key] || '0', 10);
 
     return (
-      <Card key={setting.key} className="bg-slate-800/50 border-slate-700">
+      <Card key={setting.key} className="bg-card/50 border-border">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <CardTitle className="text-base font-medium text-white">
+              <CardTitle className="text-base font-medium text-foreground">
                 {formatLabel(setting.key)}
               </CardTitle>
               {setting.description && (
-                <CardDescription className="text-slate-400">
+                <CardDescription className="text-muted-foreground">
                   {setting.description}
                 </CardDescription>
               )}
@@ -252,7 +254,7 @@ function SettingsTab({ token }: { token: string }) {
             {meta.type === 'boolean' && (
               <div className="flex items-center gap-3">
                 {savedRecently[setting.key] && (
-                  <div className="flex items-center gap-1.5 text-green-400 animate-pulse">
+                  <div className="flex items-center gap-1.5 text-primary animate-pulse">
                     <CheckCircle className="w-5 h-5" />
                     <span className="text-sm font-medium">Saved</span>
                   </div>
@@ -271,7 +273,7 @@ function SettingsTab({ token }: { token: string }) {
           <CardContent className="pt-0">
             {/* Number input with slider */}
             {meta.type === 'number' && (
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-4">
                   <Slider
                     value={[numValue]}
@@ -289,14 +291,14 @@ function SettingsTab({ token }: { token: string }) {
                       step={meta.step}
                       value={editValues[setting.key] || ''}
                       onChange={(e) => setEditValues({ ...editValues, [setting.key]: e.target.value })}
-                      className="w-24 text-right bg-slate-700 border-slate-600"
+                      className="w-24 text-right bg-secondary border-border"
                     />
                     {meta.unit && (
-                      <span className="text-sm text-slate-400 min-w-[60px]">{meta.unit}</span>
+                      <span className="text-sm text-muted-foreground min-w-[60px]">{meta.unit}</span>
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between text-xs text-slate-500">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{meta.min ?? 0}{meta.unit ? ` ${meta.unit}` : ''}</span>
                   <span>{meta.max ?? 100}{meta.unit ? ` ${meta.unit}` : ''}</span>
                 </div>
@@ -304,13 +306,13 @@ function SettingsTab({ token }: { token: string }) {
                   <Button
                     onClick={() => saveSetting(setting.key)}
                     disabled={saving === setting.key || editValues[setting.key] === setting.value}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-primary hover:bg-primary/90 disabled:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {saving === setting.key ? 'Saving...' : 'Save'}
                   </Button>
                   {savedRecently[setting.key] && (
-                    <div className="flex items-center gap-1.5 text-green-400 animate-pulse">
+                    <div className="flex items-center gap-1.5 text-primary animate-pulse">
                       <CheckCircle className="w-5 h-5" />
                       <span className="text-sm font-medium">Saved</span>
                     </div>
@@ -321,31 +323,31 @@ function SettingsTab({ token }: { token: string }) {
 
             {/* Path input */}
             {meta.type === 'path' && (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <div className="flex gap-3">
                   <div className="flex flex-1">
-                    <div className="flex items-center justify-center w-12 bg-slate-600 rounded-l-md border border-r-0 border-slate-500">
-                      <FolderOpen className="h-5 w-5 text-slate-300" />
+                    <div className="flex items-center justify-center w-12 bg-muted rounded-l-md border border-r-0 border-border">
+                      <FolderOpen className="h-5 w-5 text-secondary-foreground" />
                     </div>
                     <Input
                       type="text"
                       value={editValues[setting.key] || ''}
                       onChange={(e) => setEditValues({ ...editValues, [setting.key]: e.target.value })}
                       placeholder={meta.placeholder || ''}
-                      className="flex-1 font-mono text-sm bg-slate-700 border-slate-600 rounded-l-none"
+                      className="flex-1 font-mono text-sm bg-secondary border-border rounded-l-none"
                     />
                   </div>
                   <Button
                     onClick={() => saveSetting(setting.key)}
                     disabled={saving === setting.key || editValues[setting.key] === setting.value}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-primary hover:bg-primary/90 disabled:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {saving === setting.key ? 'Saving...' : 'Save'}
                   </Button>
                 </div>
                 {savedRecently[setting.key] && (
-                  <div className="flex items-center gap-1.5 text-green-400 animate-pulse">
+                  <div className="flex items-center gap-1.5 text-primary animate-pulse">
                     <CheckCircle className="w-5 h-5" />
                     <span className="text-sm font-medium">Saved</span>
                   </div>
@@ -355,26 +357,26 @@ function SettingsTab({ token }: { token: string }) {
 
             {/* Default string input */}
             {meta.type === 'string' && (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <div className="flex gap-3">
                   <Input
                     type="text"
                     value={editValues[setting.key] || ''}
                     onChange={(e) => setEditValues({ ...editValues, [setting.key]: e.target.value })}
                     placeholder={meta.placeholder || ''}
-                    className="flex-1 bg-slate-700 border-slate-600"
+                    className="flex-1 bg-secondary border-border"
                   />
                   <Button
                     onClick={() => saveSetting(setting.key)}
                     disabled={saving === setting.key || editValues[setting.key] === setting.value}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-primary hover:bg-primary/90 disabled:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {saving === setting.key ? 'Saving...' : 'Save'}
                   </Button>
                 </div>
                 {savedRecently[setting.key] && (
-                  <div className="flex items-center gap-1.5 text-green-400 animate-pulse">
+                  <div className="flex items-center gap-1.5 text-primary animate-pulse">
                     <CheckCircle className="w-5 h-5" />
                     <span className="text-sm font-medium">Saved</span>
                   </div>
@@ -400,8 +402,8 @@ function SettingsTab({ token }: { token: string }) {
               <span className="text-xl">🤖</span>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">AI Chatbot</h2>
-              <p className="text-sm text-slate-400">Configure the Claude AI assistant for chat</p>
+              <h2 className="text-lg font-semibold text-foreground">AI Chatbot</h2>
+              <p className="text-sm text-muted-foreground">Configure the Claude AI assistant for chat</p>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -417,11 +419,11 @@ function SettingsTab({ token }: { token: string }) {
             className="flex items-center justify-center w-10 h-10 rounded-lg"
             style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)' }}
           >
-            <Settings className="w-5 h-5 text-green-400" />
+            <Settings className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Overlay Settings</h2>
-            <p className="text-sm text-slate-400">General overlay configuration</p>
+            <h2 className="text-lg font-semibold text-foreground">Overlay Settings</h2>
+            <p className="text-sm text-muted-foreground">General overlay configuration</p>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -513,18 +515,18 @@ function PowerupsTab({ token }: { token: string }) {
   };
 
   if (loading) {
-    return <div className="text-center py-8 text-slate-400">Loading powerups...</div>;
+    return <div className="text-center py-8 text-muted-foreground">Loading powerups...</div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3 mb-8">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-yellow-500/20">
-          <Zap className="w-5 h-5 text-yellow-400" />
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-accent/20">
+          <Zap className="w-5 h-5 text-accent-foreground" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-white">Powerup Configuration</h2>
-          <p className="text-sm text-slate-400">Manage drop game powerups and their effects</p>
+          <h2 className="text-lg font-semibold text-foreground">Powerup Configuration</h2>
+          <p className="text-sm text-muted-foreground">Manage drop game powerups and their effects</p>
         </div>
       </div>
 
@@ -533,18 +535,18 @@ function PowerupsTab({ token }: { token: string }) {
         if (!edit) return null;
 
         return (
-          <Card key={powerup.id} className="bg-slate-800/50 border-slate-700">
+          <Card key={powerup.id} className="bg-card/50 border-border">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-slate-700/50">
+                <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-secondary/50">
                   <span className="text-3xl">{powerup.emoji}</span>
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-lg text-white">{powerup.name}</CardTitle>
-                  <CardDescription className="text-slate-400">{powerup.effect}</CardDescription>
+                  <CardTitle className="text-lg text-foreground">{powerup.name}</CardTitle>
+                  <CardDescription className="text-muted-foreground">{powerup.effect}</CardDescription>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Label htmlFor={`enabled-${powerup.id}`} className="text-sm text-slate-400">
+                  <Label htmlFor={`enabled-${powerup.id}`} className="text-sm text-muted-foreground">
                     Enabled
                   </Label>
                   <Switch
@@ -556,45 +558,45 @@ function PowerupsTab({ token }: { token: string }) {
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-5">
+            <CardContent className="flex flex-col gap-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-slate-400">Name</Label>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-muted-foreground">Name</Label>
                   <Input
                     type="text"
                     value={edit.name}
                     onChange={(e) => updatePowerup(powerup.id, 'name', e.target.value)}
-                    className="bg-slate-700 border-slate-600"
+                    className="bg-secondary border-border"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-slate-400">Cost (points)</Label>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-muted-foreground">Cost (points)</Label>
                   <Input
                     type="number"
                     value={edit.cost}
                     onChange={(e) => updatePowerup(powerup.id, 'cost', parseInt(e.target.value) || 0)}
-                    className="bg-slate-700 border-slate-600"
+                    className="bg-secondary border-border"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-slate-400">Description</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-muted-foreground">Description</Label>
                 <textarea
                   value={edit.description}
                   onChange={(e) => updatePowerup(powerup.id, 'description', e.target.value)}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   rows={2}
                 />
               </div>
 
             {Object.keys(edit.variables).length > 0 && (
               <div className="mb-4">
-                <Label className="text-slate-400 mb-3 block">Variables</Label>
+                <Label className="text-muted-foreground mb-3 block">Variables</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {Object.entries(edit.variables).map(([key, value]) => (
-                    <div key={key} className="space-y-1.5">
-                      <Label className="text-xs text-slate-400 capitalize">
+                    <div key={key} className="flex flex-col gap-1.5">
+                      <Label className="text-xs text-muted-foreground capitalize">
                         {key.replace(/([A-Z])/g, ' $1').trim()}
                       </Label>
                       <Input
@@ -604,7 +606,7 @@ function PowerupsTab({ token }: { token: string }) {
                           const newVars = { ...edit.variables, [key]: parseInt(e.target.value) || 0 };
                           updatePowerup(powerup.id, 'variables', newVars);
                         }}
-                        className="bg-slate-700 border-slate-600"
+                        className="bg-secondary border-border"
                       />
                     </div>
                   ))}
@@ -615,7 +617,7 @@ function PowerupsTab({ token }: { token: string }) {
               <Button
                 onClick={() => savePowerup(powerup.id)}
                 disabled={saving === powerup.id || !hasChanges(powerup.id)}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-primary hover:bg-primary/90"
                 style={saving === powerup.id || !hasChanges(powerup.id) ? { backgroundColor: '#475569', opacity: 0.6, cursor: 'not-allowed' } : { backgroundColor: '#16a34a' }}
               >
                 <Save className="w-4 h-4 mr-2" />
@@ -737,18 +739,18 @@ function UsersTab({ token }: { token: string }) {
   );
 
   if (loading) {
-    return <div className="text-center py-8 text-slate-400">Loading users...</div>;
+    return <div className="text-center py-8 text-muted-foreground">Loading users...</div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3 mb-8">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/20">
-          <Users className="w-5 h-5 text-blue-400" />
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-accent/20">
+          <Users className="w-5 h-5 text-accent-foreground" />
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-semibold text-white">User Management</h2>
-          <p className="text-sm text-slate-400">View and modify user data ({users.length} users)</p>
+          <h2 className="text-lg font-semibold text-foreground">User Management</h2>
+          <p className="text-sm text-muted-foreground">View and modify user data ({users.length} users)</p>
         </div>
         <Button onClick={fetchUsers} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="w-4 h-4" />
@@ -758,86 +760,86 @@ function UsersTab({ token }: { token: string }) {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           type="text"
           placeholder="Search users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 bg-slate-700 border-slate-600"
+          className="pl-10 bg-secondary border-border"
         />
       </div>
 
       {/* User Edit Modal */}
       {editingUser && (
-        <Card className="bg-slate-800 border-slate-600">
+        <Card className="bg-card border-border">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-white">Editing: {editingUser.username}</CardTitle>
+              <CardTitle className="text-foreground">Editing: {editingUser.username}</CardTitle>
               <Button variant="ghost" size="sm" onClick={cancelEditUser}>
                 <X className="w-4 h-4" />
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-col gap-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-slate-400">Channel Points</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-muted-foreground">Channel Points</Label>
                 <Input
                   type="number"
                   value={editingUser.channel_points}
                   onChange={(e) => setEditingUser({ ...editingUser, channel_points: parseInt(e.target.value) || 0 })}
-                  className="bg-slate-700 border-slate-600"
+                  className="bg-secondary border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-400">Drop Points</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-muted-foreground">Drop Points</Label>
                 <Input
                   type="number"
                   value={editingUser.drop_points}
                   onChange={(e) => setEditingUser({ ...editingUser, drop_points: parseInt(e.target.value) || 0 })}
-                  className="bg-slate-700 border-slate-600"
+                  className="bg-secondary border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-400">Total Drops</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-muted-foreground">Total Drops</Label>
                 <Input
                   type="number"
                   value={editingUser.total_drops}
                   onChange={(e) => setEditingUser({ ...editingUser, total_drops: parseInt(e.target.value) || 0 })}
-                  className="bg-slate-700 border-slate-600"
+                  className="bg-secondary border-border"
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-slate-400">Voice ID</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-muted-foreground">Voice ID</Label>
                 <Input
                   type="text"
                   value={editingUser.voice_id || ''}
                   onChange={(e) => setEditingUser({ ...editingUser, voice_id: e.target.value || null })}
                   placeholder="Default voice"
-                  className="bg-slate-700 border-slate-600"
+                  className="bg-secondary border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-400">Country</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-muted-foreground">Country</Label>
                 <Input
                   type="text"
                   value={editingUser.country || ''}
                   onChange={(e) => setEditingUser({ ...editingUser, country: e.target.value || null })}
                   placeholder="e.g., US"
-                  className="bg-slate-700 border-slate-600"
+                  className="bg-secondary border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-400">Drop Image URL</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-muted-foreground">Drop Image URL</Label>
                 <Input
                   type="text"
                   value={editingUser.drop_image || ''}
                   onChange={(e) => setEditingUser({ ...editingUser, drop_image: e.target.value || null })}
                   placeholder="Custom avatar URL"
-                  className="bg-slate-700 border-slate-600"
+                  className="bg-secondary border-border"
                 />
               </div>
             </div>
@@ -845,7 +847,7 @@ function UsersTab({ token }: { token: string }) {
               <Button
                 onClick={saveUser}
                 disabled={saving || !hasUserChanges()}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-primary hover:bg-primary/90"
                 style={saving || !hasUserChanges() ? { backgroundColor: '#475569', opacity: 0.6, cursor: 'not-allowed' } : { backgroundColor: '#16a34a' }}
               >
                 <Save className="w-4 h-4 mr-2" />
@@ -860,46 +862,46 @@ function UsersTab({ token }: { token: string }) {
       )}
 
       {/* Users Table */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-slate-700/50">
+            <thead className="bg-secondary/50">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">Username</th>
-                <th className="text-right px-4 py-3 text-sm font-medium text-slate-400">Channel Pts</th>
-                <th className="text-right px-4 py-3 text-sm font-medium text-slate-400">Drop Pts</th>
-                <th className="text-right px-4 py-3 text-sm font-medium text-slate-400">Total Pts</th>
-                <th className="text-right px-4 py-3 text-sm font-medium text-slate-400">Drops</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-slate-400">Country</th>
-                <th className="text-right px-4 py-3 text-sm font-medium text-slate-400">Actions</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Username</th>
+                <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Channel Pts</th>
+                <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Drop Pts</th>
+                <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Total Pts</th>
+                <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Drops</th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-muted-foreground">Country</th>
+                <th className="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700">
+            <tbody className="divide-y divide-border">
               {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-slate-700/30">
+                <tr key={user.id} className="hover:bg-secondary/30">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       {user.drop_image ? (
                         <img src={user.drop_image} alt="" className="w-8 h-8 rounded-full object-cover" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-sm font-medium text-white">
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground">
                           {user.username.charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <span className="font-medium text-white">{user.username}</span>
+                      <span className="font-medium text-foreground">{user.username}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-300">{user.channel_points.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-slate-300">{user.drop_points.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right font-medium text-green-400">
+                  <td className="px-4 py-3 text-right text-secondary-foreground">{user.channel_points.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-secondary-foreground">{user.drop_points.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-medium text-primary">
                     {(user.channel_points + user.drop_points).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-300">{user.total_drops}</td>
+                  <td className="px-4 py-3 text-right text-secondary-foreground">{user.total_drops}</td>
                   <td className="px-4 py-3 text-center">
                     {user.country ? (
                       <span className="text-lg">{getFlagEmoji(user.country)}</span>
                     ) : (
-                      <span className="text-slate-500">—</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -908,7 +910,7 @@ function UsersTab({ token }: { token: string }) {
                         variant="ghost"
                         size="sm"
                         onClick={() => startEditUser(user)}
-                        className="text-slate-400 hover:text-white"
+                        className="text-muted-foreground hover:text-foreground"
                       >
                         Edit
                       </Button>
@@ -916,7 +918,7 @@ function UsersTab({ token }: { token: string }) {
                         variant="ghost"
                         size="sm"
                         onClick={() => deleteUser(user.id)}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -928,7 +930,7 @@ function UsersTab({ token }: { token: string }) {
           </table>
         </div>
         {filteredUsers.length === 0 && (
-          <div className="text-center py-8 text-slate-400">
+          <div className="text-center py-8 text-muted-foreground">
             {search ? 'No users match your search' : 'No users found'}
           </div>
         )}
@@ -1082,7 +1084,7 @@ function DropGameTab({ token }: { token: string }) {
   };
 
   if (loading || !config) {
-    return <div className="text-center py-8 text-slate-400">Loading config...</div>;
+    return <div className="text-center py-8 text-muted-foreground">Loading config...</div>;
   }
 
   const renderField = (
@@ -1090,10 +1092,10 @@ function DropGameTab({ token }: { token: string }) {
     value: number,
     onChange: (key: string, value: number) => void
   ) => (
-    <Card key={field.key} className="bg-slate-800/50 border-slate-700">
+    <Card key={field.key} className="bg-card/50 border-border">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium text-white">{field.label}</CardTitle>
+          <CardTitle className="text-base font-medium text-foreground">{field.label}</CardTitle>
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -1102,16 +1104,16 @@ function DropGameTab({ token }: { token: string }) {
               step={field.step}
               value={value}
               onChange={(e) => onChange(field.key, parseFloat(e.target.value) || 0)}
-              className="w-24 text-right bg-slate-700 border-slate-600"
+              className="w-24 text-right bg-secondary border-border"
               style={{ backgroundColor: '#334155', borderColor: '#475569', color: '#ffffff' }}
             />
-            {field.unit && <span className="text-sm text-slate-400 min-w-[40px]">{field.unit}</span>}
+            {field.unit && <span className="text-sm text-muted-foreground min-w-[40px]">{field.unit}</span>}
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         {field.useSlider && (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             <Slider
               value={[value]}
               min={field.min}
@@ -1119,13 +1121,13 @@ function DropGameTab({ token }: { token: string }) {
               step={field.step}
               onValueChange={(val) => onChange(field.key, val[0])}
             />
-            <div className="flex justify-between text-xs text-slate-500">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span>{field.min}{field.unit ? ` ${field.unit}` : ''}</span>
               <span>{field.max}{field.unit ? ` ${field.unit}` : ''}</span>
             </div>
           </div>
         )}
-        <p className="text-xs text-slate-400 mt-2">{field.description}</p>
+        <p className="text-xs text-muted-foreground mt-2">{field.description}</p>
       </CardContent>
     </Card>
   );
@@ -1139,22 +1141,22 @@ function DropGameTab({ token }: { token: string }) {
             className="flex items-center justify-center w-10 h-10 rounded-lg"
             style={{ backgroundColor: 'rgba(99, 102, 241, 0.2)' }}
           >
-            <Gamepad2 className="w-5 h-5 text-indigo-400" />
+            <Gamepad2 className="w-5 h-5 text-accent-foreground" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">Drop Game Configuration</h2>
-            <p className="text-sm text-slate-400">Tune game physics, scoring, and powerup mechanics</p>
+            <h2 className="text-xl font-bold text-foreground">Drop Game Configuration</h2>
+            <p className="text-sm text-muted-foreground">Tune game physics, scoring, and powerup mechanics</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {resetRecently && (
-            <div className="flex items-center gap-1.5 text-yellow-400 animate-pulse">
+            <div className="flex items-center gap-1.5 text-accent-foreground animate-pulse">
               <CheckCircle className="w-5 h-5" />
               <span className="text-sm font-medium">Reset!</span>
             </div>
           )}
           {savedRecently && (
-            <div className="flex items-center gap-1.5 text-green-400 animate-pulse">
+            <div className="flex items-center gap-1.5 text-primary animate-pulse">
               <CheckCircle className="w-5 h-5" />
               <span className="text-sm font-medium">Saved!</span>
             </div>
@@ -1162,7 +1164,7 @@ function DropGameTab({ token }: { token: string }) {
           <Button
             onClick={resetDropGame}
             disabled={resetting}
-            className="bg-red-600 hover:bg-red-700"
+            className="bg-destructive hover:bg-destructive/90"
             style={resetting ? { backgroundColor: '#475569', opacity: 0.6, cursor: 'not-allowed' } : { backgroundColor: '#dc2626' }}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${resetting ? 'animate-spin' : ''}`} />
@@ -1171,7 +1173,7 @@ function DropGameTab({ token }: { token: string }) {
           <Button
             onClick={saveConfig}
             disabled={saving || !hasConfigChanges()}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-primary hover:bg-primary/90"
             style={saving || !hasConfigChanges() ? { backgroundColor: '#475569', opacity: 0.6, cursor: 'not-allowed' } : { backgroundColor: '#16a34a' }}
           >
             <Save className="w-4 h-4 mr-2" />
@@ -1189,7 +1191,7 @@ function DropGameTab({ token }: { token: string }) {
           >
             <span className="text-lg">🎮</span>
           </div>
-          <h3 className="text-lg font-semibold text-green-400">Game Settings</h3>
+          <h3 className="text-lg font-semibold text-primary">Game Settings</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {GAME_FIELDS.map((field) =>
@@ -1207,7 +1209,7 @@ function DropGameTab({ token }: { token: string }) {
           >
             <span className="text-lg">🏆</span>
           </div>
-          <h3 className="text-lg font-semibold text-yellow-400">Scoring Settings</h3>
+          <h3 className="text-lg font-semibold text-accent-foreground">Scoring Settings</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {SCORING_FIELDS.map((field) =>
@@ -1225,7 +1227,7 @@ function DropGameTab({ token }: { token: string }) {
           >
             <span className="text-lg">⚡</span>
           </div>
-          <h3 className="text-lg font-semibold text-purple-400">Physics & Powerups</h3>
+          <h3 className="text-lg font-semibold text-primary">Physics & Powerups</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {PHYSICS_FIELDS.map((field) =>
@@ -1237,10 +1239,448 @@ function DropGameTab({ token }: { token: string }) {
   );
 }
 
+// Clean color picker component
+function ColorPicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-4 p-5 bg-card/80 rounded-2xl">
+      <div
+        className="relative w-12 h-12 rounded-lg cursor-pointer overflow-hidden flex-shrink-0 shadow-lg ring-1 ring-white/10"
+        style={{ backgroundColor: value }}
+      >
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 w-full h-full cursor-pointer border-none p-0 m-0"
+          style={{ opacity: 0, appearance: 'none', WebkitAppearance: 'none' }}
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium text-foreground block mb-2">{label}</span>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="#000000"
+          className="w-full font-mono text-sm text-foreground bg-secondary/50 border-0 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+        />
+      </div>
+    </div>
+  );
+}
+
+// Color pair component for related colors
+function ColorPair({
+  title,
+  bgLabel,
+  bgValue,
+  onBgChange,
+  fgLabel,
+  fgValue,
+  onFgChange,
+}: {
+  title: string;
+  bgLabel: string;
+  bgValue: string;
+  onBgChange: (value: string) => void;
+  fgLabel: string;
+  fgValue: string;
+  onFgChange: (value: string) => void;
+}) {
+  return (
+    <div className="bg-card/80 rounded-2xl overflow-hidden">
+      <div className="px-5 py-3.5 bg-secondary/50">
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+      </div>
+      <div className="p-5 flex flex-col gap-4">
+        <div className="flex items-center gap-4">
+          <div
+            className="relative w-10 h-10 rounded-lg cursor-pointer overflow-hidden flex-shrink-0 shadow-md ring-1 ring-white/10"
+            style={{ backgroundColor: bgValue }}
+          >
+            <input
+              type="color"
+              value={bgValue}
+              onChange={(e) => onBgChange(e.target.value)}
+              className="absolute inset-0 w-full h-full cursor-pointer border-none p-0 m-0"
+              style={{ opacity: 0, appearance: 'none', WebkitAppearance: 'none' }}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-xs text-muted-foreground block mb-1.5">{bgLabel}</span>
+            <input
+              type="text"
+              value={bgValue}
+              onChange={(e) => onBgChange(e.target.value)}
+              className="w-full font-mono text-sm text-foreground bg-secondary/50 border-0 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div
+            className="relative w-10 h-10 rounded-lg cursor-pointer overflow-hidden flex-shrink-0 shadow-md ring-1 ring-white/10"
+            style={{ backgroundColor: fgValue }}
+          >
+            <input
+              type="color"
+              value={fgValue}
+              onChange={(e) => onFgChange(e.target.value)}
+              className="absolute inset-0 w-full h-full cursor-pointer border-none p-0 m-0"
+              style={{ opacity: 0, appearance: 'none', WebkitAppearance: 'none' }}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-xs text-muted-foreground block mb-1.5">{fgLabel}</span>
+            <input
+              type="text"
+              value={fgValue}
+              onChange={(e) => onFgChange(e.target.value)}
+              className="w-full font-mono text-sm text-foreground bg-secondary/50 border-0 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+            />
+          </div>
+        </div>
+        {/* Preview */}
+        <div
+          className="px-4 py-3 rounded-lg text-sm text-center font-medium"
+          style={{ backgroundColor: bgValue, color: fgValue }}
+        >
+          Preview Text
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ThemeTab({ token }: { token: string }) {
+  const { theme: currentTheme, setTheme: setContextTheme } = useTheme();
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig | null>(null);
+  const [originalConfig, setOriginalConfig] = useState<ThemeConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savedRecently, setSavedRecently] = useState(false);
+  const [activeMode, setActiveMode] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    fetchTheme();
+  }, [token]);
+
+  const fetchTheme = async () => {
+    try {
+      const res = await fetch('/api/admin/theme', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setThemeConfig(data);
+      setOriginalConfig(JSON.parse(JSON.stringify(data)));
+    } catch (err) {
+      console.error('Failed to fetch theme:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveTheme = async () => {
+    if (!themeConfig) return;
+    setSaving(true);
+    try {
+      await fetch('/api/admin/theme', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(themeConfig),
+      });
+      setOriginalConfig(JSON.parse(JSON.stringify(themeConfig)));
+      setContextTheme(themeConfig); // Update the live theme
+      setSavedRecently(true);
+      setTimeout(() => setSavedRecently(false), 2000);
+    } catch (err) {
+      console.error('Failed to save theme:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hasChanges = (): boolean => {
+    if (!themeConfig || !originalConfig) return false;
+    return JSON.stringify(themeConfig) !== JSON.stringify(originalConfig);
+  };
+
+  const updateField = (field: keyof ThemeConfig, value: string) => {
+    if (!themeConfig) return;
+    setThemeConfig({ ...themeConfig, [field]: value });
+  };
+
+  const updateModeColor = (mode: 'darkMode' | 'lightMode', field: string, value: string) => {
+    if (!themeConfig) return;
+    setThemeConfig({
+      ...themeConfig,
+      [mode]: { ...themeConfig[mode], [field]: value },
+    });
+  };
+
+  if (loading || !themeConfig) {
+    return <div className="text-center py-8 text-muted-foreground">Loading theme...</div>;
+  }
+
+  const modeColors = activeMode === 'dark' ? themeConfig.darkMode : themeConfig.lightMode;
+  const modeKey = activeMode === 'dark' ? 'darkMode' : 'lightMode';
+
+  return (
+    <div className="flex flex-col" style={{ gap: '32px' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/20">
+            <Palette className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Theme Configuration</h2>
+            <p className="text-sm text-muted-foreground">Customize colors and branding</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {savedRecently && (
+            <div className="flex items-center gap-2 text-primary">
+              <CheckCircle className="w-5 h-5" />
+              <span className="text-sm font-medium">Saved!</span>
+            </div>
+          )}
+          <button
+            onClick={saveTheme}
+            disabled={saving || !hasChanges()}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all ${
+              saving || !hasChanges()
+                ? 'bg-secondary text-muted-foreground cursor-not-allowed'
+                : 'bg-primary text-foreground hover:bg-primary/80 shadow-lg shadow-green-500/25'
+            }`}
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save Theme'}
+          </button>
+        </div>
+      </div>
+
+      {/* Site Name Section */}
+      <section className="bg-card/50 rounded-2xl p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-2xl">📝</span>
+          <h3 className="text-lg font-semibold text-foreground">Site Identity</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label className="text-sm font-medium text-secondary-foreground block mb-2">Site Name</label>
+            <input
+              type="text"
+              value={themeConfig.siteName}
+              onChange={(e) => updateField('siteName', e.target.value)}
+              placeholder="Kick"
+              className="w-full text-foreground bg-secondary/50 border-0 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-secondary-foreground block mb-2">Accent Text</label>
+            <input
+              type="text"
+              value={themeConfig.siteNameAccent}
+              onChange={(e) => updateField('siteNameAccent', e.target.value)}
+              placeholder="Overlay"
+              className="w-full text-foreground bg-secondary/50 border-0 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+            />
+          </div>
+        </div>
+        <div className="p-6 bg-background/50 rounded-xl">
+          <span className="text-xs text-muted-foreground uppercase tracking-wider block mb-4">Header Preview</span>
+          <span className="text-3xl font-bold text-foreground tracking-tight">
+            {themeConfig.siteName}<span style={{ color: themeConfig.brandColor }}>{themeConfig.siteNameAccent}</span>
+          </span>
+        </div>
+      </section>
+
+      {/* Typography Section */}
+      <section className="bg-card/50 rounded-2xl p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/20">
+            <Type className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Typography</h3>
+            <p className="text-sm text-muted-foreground">Select a font for your site</p>
+          </div>
+        </div>
+        <div className="max-w-md">
+          <FontSelector
+            value={themeConfig.fontFamily || 'Poppins'}
+            onChange={(font) => updateField('fontFamily', font)}
+          />
+        </div>
+      </section>
+
+      {/* Brand Colors Section */}
+      <section className="bg-card/50 rounded-2xl p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-2xl">🎨</span>
+          <h3 className="text-lg font-semibold text-foreground">Brand & Style</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <ColorPicker
+            label="Brand Color"
+            value={themeConfig.brandColor}
+            onChange={(v) => updateField('brandColor', v)}
+          />
+          <ColorPicker
+            label="Brand Foreground"
+            value={themeConfig.brandColorForeground}
+            onChange={(v) => updateField('brandColorForeground', v)}
+          />
+          <div className="p-5 bg-card/80 rounded-2xl">
+            <span className="text-sm font-medium text-foreground block mb-2">Border Radius</span>
+            <input
+              type="text"
+              value={themeConfig.borderRadius}
+              onChange={(e) => updateField('borderRadius', e.target.value)}
+              placeholder="0.75rem"
+              className="w-full font-mono text-sm text-foreground bg-secondary/50 border-0 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+            />
+          </div>
+        </div>
+        <div className="p-6 bg-background/50 rounded-xl">
+          <span className="text-xs text-muted-foreground uppercase tracking-wider block mb-4">Brand Preview</span>
+          <div className="flex items-center gap-6 flex-wrap">
+            <button
+              className="px-6 py-3 rounded-lg text-sm font-semibold shadow-lg transition-transform hover:scale-105"
+              style={{ backgroundColor: themeConfig.brandColor, color: themeConfig.brandColorForeground }}
+            >
+              Primary Button
+            </button>
+            <button
+              className="px-6 py-3 rounded-lg text-sm font-semibold border-2 transition-colors"
+              style={{ borderColor: themeConfig.brandColor, color: themeConfig.brandColor, backgroundColor: 'transparent' }}
+            >
+              Outline Button
+            </button>
+            <span className="text-sm font-medium underline underline-offset-4 cursor-pointer" style={{ color: themeConfig.brandColor }}>
+              Brand Link
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Theme Mode Colors Section */}
+      <section className="bg-card/50 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{activeMode === 'dark' ? '🌙' : '☀️'}</span>
+            <h3 className="text-lg font-semibold text-foreground">
+              {activeMode === 'dark' ? 'Dark' : 'Light'} Mode Colors
+            </h3>
+          </div>
+          <div className="flex gap-1 p-2 bg-secondary/50 rounded-xl">
+            <button
+              onClick={() => setActiveMode('dark')}
+              className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${
+                activeMode === 'dark'
+                  ? 'bg-muted text-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              🌙 Dark
+            </button>
+            <button
+              onClick={() => setActiveMode('light')}
+              className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${
+                activeMode === 'light'
+                  ? 'bg-muted text-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              ☀️ Light
+            </button>
+          </div>
+        </div>
+
+        {/* Color pairs grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <ColorPair
+            title="Page"
+            bgLabel="Background"
+            bgValue={modeColors.background}
+            onBgChange={(v) => updateModeColor(modeKey, 'background', v)}
+            fgLabel="Text"
+            fgValue={modeColors.foreground}
+            onFgChange={(v) => updateModeColor(modeKey, 'foreground', v)}
+          />
+          <ColorPair
+            title="Card"
+            bgLabel="Background"
+            bgValue={modeColors.card}
+            onBgChange={(v) => updateModeColor(modeKey, 'card', v)}
+            fgLabel="Text"
+            fgValue={modeColors.cardForeground}
+            onFgChange={(v) => updateModeColor(modeKey, 'cardForeground', v)}
+          />
+          <ColorPair
+            title="Primary"
+            bgLabel="Background"
+            bgValue={modeColors.primary}
+            onBgChange={(v) => updateModeColor(modeKey, 'primary', v)}
+            fgLabel="Text"
+            fgValue={modeColors.primaryForeground}
+            onFgChange={(v) => updateModeColor(modeKey, 'primaryForeground', v)}
+          />
+          <ColorPair
+            title="Secondary"
+            bgLabel="Background"
+            bgValue={modeColors.secondary}
+            onBgChange={(v) => updateModeColor(modeKey, 'secondary', v)}
+            fgLabel="Text"
+            fgValue={modeColors.secondaryForeground}
+            onFgChange={(v) => updateModeColor(modeKey, 'secondaryForeground', v)}
+          />
+          <ColorPair
+            title="Muted"
+            bgLabel="Background"
+            bgValue={modeColors.muted}
+            onBgChange={(v) => updateModeColor(modeKey, 'muted', v)}
+            fgLabel="Text"
+            fgValue={modeColors.mutedForeground}
+            onFgChange={(v) => updateModeColor(modeKey, 'mutedForeground', v)}
+          />
+          <ColorPair
+            title="Accent"
+            bgLabel="Background"
+            bgValue={modeColors.accent}
+            onBgChange={(v) => updateModeColor(modeKey, 'accent', v)}
+            fgLabel="Text"
+            fgValue={modeColors.accentForeground}
+            onFgChange={(v) => updateModeColor(modeKey, 'accentForeground', v)}
+          />
+        </div>
+
+        {/* Border color */}
+        <ColorPicker
+          label="Border Color"
+          value={modeColors.border}
+          onChange={(v) => updateModeColor(modeKey, 'border', v)}
+        />
+      </section>
+    </div>
+  );
+}
+
 export function AdminPage() {
   const [token, setToken] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(true);
-  const [activeTab, setActiveTab] = useState<'settings' | 'powerups' | 'dropgame' | 'users'>('settings');
+  const [activeTab, setActiveTab] = useState<'settings' | 'powerups' | 'dropgame' | 'users' | 'theme'>('settings');
 
   useEffect(() => {
     const storedToken = localStorage.getItem('adminToken');
@@ -1282,8 +1722,8 @@ export function AdminPage() {
 
   if (verifying) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-slate-400">Verifying session...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Verifying session...</div>
       </div>
     );
   }
@@ -1297,18 +1737,19 @@ export function AdminPage() {
     { id: 'powerups' as const, label: 'Powerups', icon: Zap },
     { id: 'dropgame' as const, label: 'Drop Game', icon: Gamepad2 },
     { id: 'users' as const, label: 'Users', icon: Users },
+    { id: 'theme' as const, label: 'Theme', icon: Palette },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-slate-400 hover:text-red-400 transition-colors"
+            className="flex items-center gap-2 text-muted-foreground hover:text-destructive transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Logout
@@ -1316,7 +1757,7 @@ export function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-slate-700 pb-2">
+        <div className="flex gap-2 mb-6 border-b border-border pb-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -1325,8 +1766,8 @@ export function AdminPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-green-500 text-white'
-                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    ? 'bg-primary text-foreground'
+                    : 'bg-card text-muted-foreground hover:bg-secondary'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -1341,6 +1782,7 @@ export function AdminPage() {
         {activeTab === 'powerups' && <PowerupsTab token={token} />}
         {activeTab === 'dropgame' && <DropGameTab token={token} />}
         {activeTab === 'users' && <UsersTab token={token} />}
+        {activeTab === 'theme' && <ThemeTab token={token} />}
       </main>
     </div>
   );

@@ -81,7 +81,7 @@ export function ProfileLoginPage() {
     try {
       const result = await api.checkVerifyCode(username, verifyCode);
       if (result.verified) {
-        login(username, result.token);
+        login(username, result.sessionToken);
         setStep('success');
         setTimeout(() => {
           navigate(`/profile/${username}`);
@@ -99,12 +99,12 @@ export function ProfileLoginPage() {
   // Show loading state while checking for existing session
   if (checkingSession || isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-background to-card flex flex-col">
         <Header />
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-8 h-8 text-kick animate-spin" />
-            <p className="text-slate-400">Checking session...</p>
+            <p className="text-muted-foreground">Checking session...</p>
           </div>
         </div>
       </div>
@@ -112,27 +112,27 @@ export function ProfileLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background flex flex-col">
       <Header />
       <div className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
-          <Card className="shadow-2xl border-slate-700/50 bg-slate-800/80 backdrop-blur">
+          <Card className="shadow-2xl border-border/50 bg-card/80 backdrop-blur">
             <CardHeader className="text-center pb-2 pt-8">
               <div className="w-16 h-16 bg-kick/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <User className="w-8 h-8 text-kick" />
               </div>
-              <CardTitle className="text-2xl font-bold text-white">
+              <CardTitle className="text-2xl font-bold text-foreground">
                 Profile Login
               </CardTitle>
-              <CardDescription className="text-slate-400 mt-2">
+              <CardDescription className="text-muted-foreground mt-2">
                 Verify your Kick username to access your profile
               </CardDescription>
             </CardHeader>
-            <CardContent className="px-8 pb-8 pt-4">
+            <CardContent className="px-8 pb-8 pt-6">
               {step === 'username' && (
-                <form onSubmit={handleUsernameSubmit} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="username" className="text-slate-300">
+                <form onSubmit={handleUsernameSubmit} className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-3">
+                    <Label htmlFor="username" className="text-muted-foreground text-sm font-medium">
                       Kick Username
                     </Label>
                     <Input
@@ -142,12 +142,12 @@ export function ProfileLoginPage() {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       disabled={loading}
-                      className="h-12 bg-slate-700/50 border-slate-600 focus:border-kick focus:ring-kick/20 text-white placeholder:text-slate-500"
+                      className="h-12 bg-secondary/50 border-border focus:border-kick focus:ring-kick/20 text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
 
                   {error && (
-                    <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                    <div className="flex items-center gap-3 text-destructive text-sm bg-destructive/10 p-4 rounded-xl border border-destructive/20">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       {error}
                     </div>
@@ -155,7 +155,7 @@ export function ProfileLoginPage() {
 
                   <Button
                     type="submit"
-                    className="w-full h-12 bg-kick text-black hover:bg-kick/90 font-semibold text-base"
+                    className="w-full h-12 bg-kick text-black hover:bg-kick/90 font-semibold text-base mt-2"
                     disabled={loading || !username.trim()}
                   >
                     {loading ? (
@@ -171,17 +171,17 @@ export function ProfileLoginPage() {
               )}
 
               {step === 'verify' && (
-                <div className="space-y-6">
+                <div className="flex flex-col gap-6">
                   <div className="text-center">
-                    <Badge variant="outline" className="text-base px-4 py-2 mb-4 bg-slate-700/50 border-slate-600">
+                    <Badge variant="outline" className="text-base px-4 py-2 mb-4 bg-secondary/50 border-border">
                       @{username}
                     </Badge>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-muted-foreground text-sm">
                       Type this command in the stream chat to verify:
                     </p>
                   </div>
 
-                  <div className="bg-slate-700/50 rounded-xl p-6 text-center relative border border-slate-600/50">
+                  <div className="bg-secondary/50 rounded-xl p-6 text-center relative border border-border/50">
                     <code className="text-2xl font-bold text-kick tracking-wider font-mono">
                       !verify {verifyCode}
                     </code>
@@ -189,8 +189,8 @@ export function ProfileLoginPage() {
                       onClick={copyVerifyCommand}
                       className={`absolute right-4 top-1/2 -translate-y-1/2 p-2.5 rounded-lg transition-all ${
                         copied
-                          ? 'bg-green-500/20 text-green-400 scale-110'
-                          : 'bg-slate-600/50 text-slate-400 hover:bg-slate-500/50 hover:text-white'
+                          ? 'bg-primary/20 text-primary scale-110'
+                          : 'bg-muted/50 text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
                       }`}
                       title="Copy code"
                     >
@@ -198,13 +198,13 @@ export function ProfileLoginPage() {
                     </button>
                   </div>
 
-                  <div className="flex items-start gap-4 p-4 bg-blue-950/30 rounded-xl border border-blue-800/30">
-                    <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center shrink-0">
-                      <MessageSquare className="w-5 h-5 text-blue-400" />
+                  <div className="flex items-start gap-4 p-4 bg-accent/30 rounded-xl border border-accent/30">
+                    <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-5 h-5 text-accent-foreground" />
                     </div>
                     <div className="text-sm">
-                      <p className="font-semibold text-blue-200 mb-2">How to verify:</p>
-                      <ol className="text-blue-300/80 list-decimal list-inside space-y-1.5">
+                      <p className="font-semibold text-foreground mb-2">How to verify:</p>
+                      <ol className="text-muted-foreground list-decimal list-inside space-y-1.5">
                         <li>Go to the stream chat</li>
                         <li>Type the command above (or click copy)</li>
                         <li>Come back and click "Check Verification"</li>
@@ -213,7 +213,7 @@ export function ProfileLoginPage() {
                   </div>
 
                   {error && (
-                    <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                    <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 p-3 rounded-lg border border-destructive/20">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       {error}
                     </div>
@@ -222,7 +222,7 @@ export function ProfileLoginPage() {
                   <div className="flex gap-3 pt-2">
                     <Button
                       variant="outline"
-                      className="flex-1 h-12 border-slate-600 hover:bg-slate-700"
+                      className="flex-1 h-12 border-border hover:bg-secondary"
                       onClick={() => setStep('username')}
                     >
                       Back
@@ -243,13 +243,13 @@ export function ProfileLoginPage() {
               )}
 
               {step === 'success' && (
-                <div className="text-center space-y-6 py-4">
+                <div className="text-center flex flex-col items-center gap-6 py-4">
                   <div className="w-20 h-20 bg-kick/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
                     <Check className="w-10 h-10 text-kick" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Verified!</h3>
-                    <p className="text-slate-400">
+                    <h3 className="text-2xl font-bold text-foreground mb-2">Verified!</h3>
+                    <p className="text-muted-foreground">
                       Redirecting to your profile...
                     </p>
                   </div>

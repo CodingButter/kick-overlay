@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "@/context/ThemeContext";
 
 // Sound notification for new messages after silence
 const DEFAULT_NOTIFICATION_THRESHOLD = 2 * 60 * 1000; // 2 minutes default
@@ -130,30 +131,30 @@ function GoalBar({
   label,
   current,
   target,
-  color,
 }: {
   label: string;
   current: number;
   target: number;
-  color: string;
 }) {
+  const { theme, isDark } = useTheme();
+  const colors = isDark ? theme.darkMode : theme.lightMode;
   const percentage = Math.min((current / target) * 100, 100);
 
   return (
     <div className="mb-2">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-sm font-semibold text-gray-200">{label}</span>
-        <span className="text-sm font-bold text-white">
+        <span className="text-sm font-semibold" style={{ color: colors.foreground }}>{label}</span>
+        <span className="text-sm font-bold" style={{ color: colors.foreground }}>
           {current} / {target}
         </span>
       </div>
-      <div className="h-5 bg-slate-950 rounded-full overflow-hidden border border-slate-700">
+      <div className="h-5 rounded-full overflow-hidden" style={{ backgroundColor: colors.background }}>
         <div
-          className={`h-full ${color} transition-all duration-500 ease-out flex items-center justify-end pr-2`}
-          style={{ width: `${percentage}%` }}
+          className="h-full transition-all duration-500 ease-out flex items-center justify-end pr-2"
+          style={{ width: `${percentage}%`, backgroundColor: colors.primary }}
         >
           {percentage >= 15 && (
-            <span className="text-xs font-bold text-white drop-shadow">
+            <span className="text-xs font-bold drop-shadow" style={{ color: colors.primaryForeground }}>
               {percentage.toFixed(0)}%
             </span>
           )}
@@ -164,12 +165,14 @@ function GoalBar({
 }
 
 function ChatMessageItem({ message, countryCode }: { message: ChatMessage; countryCode?: string | null }) {
+  const { theme, isDark } = useTheme();
+  const colors = isDark ? theme.darkMode : theme.lightMode;
   const username = message.sender?.username || "Unknown";
   const content = message.content || "";
   const profilePicture = message.sender?.profile_picture;
 
   return (
-    <div className="bg-slate-800 rounded-lg px-3 py-2 border border-slate-700">
+    <div className="rounded-lg px-3 py-2" style={{ backgroundColor: colors.secondary }}>
       {/* Header: Profile Picture, Flag, Username */}
       <div className="flex items-center gap-2 mb-1">
         {/* Profile Picture - 30x30px */}
@@ -177,7 +180,7 @@ function ChatMessageItem({ message, countryCode }: { message: ChatMessage; count
           <img
             src={profilePicture}
             alt={username}
-            className="rounded-full object-cover border border-green-400 shrink-0"
+            className="rounded-full object-cover shrink-0"
             style={{ width: '30px', height: '30px' }}
             onError={(e) => {
               (e.target as HTMLImageElement).src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%2353fc18'/></svg>";
@@ -185,8 +188,8 @@ function ChatMessageItem({ message, countryCode }: { message: ChatMessage; count
           />
         ) : (
           <div
-            className="rounded-full bg-green-400 flex items-center justify-center text-slate-900 font-bold text-xs shrink-0"
-            style={{ width: '30px', height: '30px' }}
+            className="rounded-full flex items-center justify-center font-bold text-xs shrink-0"
+            style={{ width: '30px', height: '30px', backgroundColor: colors.primary, color: colors.primaryForeground }}
           >
             {username.charAt(0).toUpperCase()}
           </div>
@@ -203,16 +206,19 @@ function ChatMessageItem({ message, countryCode }: { message: ChatMessage; count
         )}
 
         {/* Username */}
-        <span className="font-bold text-green-400">{username}</span>
+        <span className="font-bold" style={{ color: colors.primary }}>{username}</span>
       </div>
 
       {/* Message - below the header (with emote rendering) */}
-      <p className="text-gray-100 break-words">{renderMessageContent(content)}</p>
+      <p className="break-words" style={{ color: colors.foreground }}>{renderMessageContent(content)}</p>
     </div>
   );
 }
 
 export function OverlayPage() {
+  const { theme, isDark } = useTheme();
+  const colors = isDark ? theme.darkMode : theme.lightMode;
+
   const [goals, setGoals] = useState<GoalData>({
     followers: { current: 0, target: 100 },
     subscribers: { current: 0, target: 50 },
@@ -445,31 +451,29 @@ export function OverlayPage() {
   }, []);
 
   return (
-    <div className="w-[1920px] h-[1080px] flex flex-col gap-4 p-4 bg-slate-950">
+    <div className="w-[1920px] h-[1080px] flex flex-col gap-4 p-4" style={{ backgroundColor: colors.background, color: colors.foreground }}>
       {/* Audio enable overlay - required for browser autoplay policy */}
       {!audioEnabled && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-pointer"
+          className="fixed inset-0 z-50 bg-background/80 flex items-center justify-center cursor-pointer"
           onClick={handleEnableAudio}
         >
           <div className="text-center">
             <div className="text-6xl mb-4">🔊</div>
-            <h2 className="text-2xl font-bold text-white mb-2">Click to Enable Audio</h2>
-            <p className="text-gray-400">Required for TTS messages</p>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Click to Enable Audio</h2>
+            <p className="text-muted-foreground">Required for TTS messages</p>
           </div>
         </div>
       )}
 
       {/* TOP ROW - VS Code (left) | Goals, Notifications, Chat (right) */}
-      <div className="flex gap-4 min-h-0 overflow-hidden">
+      <div className="flex gap-4 min-h-0">
         {/* VS Code Frame - chroma-key magenta for OBS filtering */}
         <div
-          className="shrink-0 border-2 border-slate-600/50 pointer-events-none"
+          className="shrink-0 rounded-2xl pointer-events-none"
           style={{
             width: '1300px',
             height: '725px',
-            borderRadius: '1rem',
-            boxShadow: '0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
             background: '#FF00FF',
           }}
         />
@@ -477,8 +481,8 @@ export function OverlayPage() {
         {/* Right sidebar - Goals, Notifications, Chat as separate sections */}
         <div className="flex-1 flex flex-col gap-4" style={{ height: '709px' }}>
           {/* Goals section */}
-          <div className="shrink-0 bg-slate-900/90 rounded-2xl shadow-2xl border border-slate-700 p-4">
-            <h2 className="text-lg font-bold text-green-400 mb-3 flex items-center gap-2">
+          <div className="shrink-0 rounded-2xl shadow-2xl p-4" style={{ backgroundColor: colors.card, color: colors.cardForeground }}>
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2" style={{ color: colors.primary }}>
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
@@ -488,13 +492,12 @@ export function OverlayPage() {
               label="Followers"
               current={goals.followers.current}
               target={goals.followers.target}
-              color="bg-gradient-to-r from-green-500 to-green-400"
             />
           </div>
 
           {/* Notifications section */}
-          <div className="shrink-0 bg-slate-900/90 rounded-2xl shadow-2xl border border-slate-700 p-4">
-            <h2 className="text-lg font-bold mb-2 flex items-center gap-2" style={{ color: '#22D3EE' }}>
+          <div className="shrink-0 rounded-2xl shadow-2xl p-4" style={{ backgroundColor: colors.card, color: colors.cardForeground }}>
+            <h2 className="text-lg font-bold mb-2 flex items-center gap-2" style={{ color: colors.accentForeground }}>
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
               </svg>
@@ -502,42 +505,42 @@ export function OverlayPage() {
             </h2>
             <div className="flex items-center gap-2 text-sm">
               {!lastEvent && (
-                <span style={{ color: '#6B7280' }}>No Recent Events</span>
+                <span style={{ color: colors.mutedForeground }}>No Recent Events</span>
               )}
               {lastEvent?.type === 'follow' && (
                 <>
-                  <span style={{ color: '#F87171' }}>
+                  <span className="text-destructive">
                     <svg className="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                     </svg>
                   </span>
-                  <span style={{ color: '#D1D5DB' }}>
-                    <span className="font-bold" style={{ color: '#F87171' }}>{lastEvent.username}</span> followed! <span style={{ color: '#6B7280' }}>- {getRelativeTime(lastEvent.timestamp)}</span>
+                  <span style={{ color: colors.foreground }}>
+                    <span className="font-bold text-destructive">{lastEvent.username}</span> followed! <span style={{ color: colors.mutedForeground }}>- {getRelativeTime(lastEvent.timestamp)}</span>
                   </span>
                 </>
               )}
               {lastEvent?.type === 'subscription' && (
                 <>
-                  <span style={{ color: '#FBBF24' }}>
+                  <span style={{ color: colors.primary }}>
                     <svg className="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                   </span>
-                  <span style={{ color: '#D1D5DB' }}>
-                    <span className="font-bold" style={{ color: '#FBBF24' }}>{lastEvent.username}</span> subscribed! <span style={{ color: '#6B7280' }}>- {getRelativeTime(lastEvent.timestamp)}</span>
+                  <span style={{ color: colors.foreground }}>
+                    <span className="font-bold" style={{ color: colors.primary }}>{lastEvent.username}</span> subscribed! <span style={{ color: colors.mutedForeground }}>- {getRelativeTime(lastEvent.timestamp)}</span>
                   </span>
                 </>
               )}
               {lastEvent?.type === 'gift' && (
                 <>
-                  <span style={{ color: '#FACC15' }}>
+                  <span style={{ color: colors.primary }}>
                     <svg className="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z" clipRule="evenodd" />
                       <path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" />
                     </svg>
                   </span>
-                  <span style={{ color: '#D1D5DB' }}>
-                    <span className="font-bold" style={{ color: '#FACC15' }}>{lastEvent.username}</span> gifted {lastEvent.details}! <span style={{ color: '#6B7280' }}>- {getRelativeTime(lastEvent.timestamp)}</span>
+                  <span style={{ color: colors.foreground }}>
+                    <span className="font-bold" style={{ color: colors.primary }}>{lastEvent.username}</span> gifted {lastEvent.details}! <span style={{ color: colors.mutedForeground }}>- {getRelativeTime(lastEvent.timestamp)}</span>
                   </span>
                 </>
               )}
@@ -545,8 +548,8 @@ export function OverlayPage() {
           </div>
 
           {/* Chat section - fills remaining space */}
-          <div className="flex-1 bg-slate-900/90 shadow-2xl border border-slate-700 p-4 flex flex-col" style={{ borderRadius: '1rem', minHeight: 0, overflow: 'hidden' }}>
-            <h2 className="text-lg font-bold text-blue-400 mb-3 flex items-center gap-2 shrink-0">
+          <div className="flex-1 shadow-2xl p-4 flex flex-col" style={{ borderRadius: '1rem', minHeight: 0, overflow: 'hidden', backgroundColor: colors.card, color: colors.cardForeground }}>
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2 shrink-0" style={{ color: colors.primary }}>
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
               </svg>
@@ -572,41 +575,38 @@ export function OverlayPage() {
       <div className="h-[250px] flex gap-4 shrink-0">
         {/* Blood Sugar & Graph */}
         <div
-          className="flex-1 rounded-2xl bg-slate-900/90 shadow-2xl border border-slate-700 pointer-events-none"
+          className="flex-1 rounded-2xl shadow-2xl pointer-events-none"
+          style={{ backgroundColor: colors.card }}
         />
 
         {/* Insulin Delivery Graph - chroma-key magenta for OBS filtering */}
         <div
-          className="flex-1 rounded-2xl border-2 border-slate-600/50 pointer-events-none"
+          className="flex-1 rounded-2xl pointer-events-none"
           style={{
-            boxShadow: '0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
             background: '#FF00FF',
           }}
         />
 
         {/* Units Remaining & Battery - chroma-key magenta for OBS filtering */}
         <div
-          className="flex-1 rounded-2xl border-2 border-slate-600/50 pointer-events-none"
+          className="flex-1 rounded-2xl pointer-events-none"
           style={{
-            boxShadow: '0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
             background: '#FF00FF',
           }}
         />
 
         {/* Music Video Frame - square (250x250), chroma-key magenta for OBS filtering */}
         <div
-          className="w-[250px] shrink-0 rounded-2xl border-2 border-slate-600/50 pointer-events-none"
+          className="w-[250px] shrink-0 rounded-2xl pointer-events-none"
           style={{
-            boxShadow: '0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
             background: '#FF00FF',
           }}
         />
 
         {/* Camera Frame - matches right sidebar width, chroma-key magenta for OBS filtering */}
         <div
-          className="w-[420px] shrink-0 rounded-3xl border-4 border-white pointer-events-none"
+          className="w-[420px] shrink-0 rounded-3xl pointer-events-none"
           style={{
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3)',
             background: '#FF00FF',
           }}
         />
@@ -614,10 +614,10 @@ export function OverlayPage() {
 
       {/* BOTTOM ROW - Tips (full width) */}
       {tips.length > 0 && (
-        <div className="shrink-0 bg-slate-900/90 rounded-2xl shadow-2xl border border-slate-700 px-6 py-3">
+        <div className="shrink-0 rounded-2xl shadow-2xl px-6 py-3" style={{ backgroundColor: colors.card, color: colors.cardForeground }}>
           <div className="flex items-center gap-3 text-base">
-            <span className="text-green-400 font-bold shrink-0">TIP:</span>
-            <span className="text-gray-200">{tips[currentTipIndex]}</span>
+            <span className="font-bold shrink-0" style={{ color: colors.primary }}>TIP:</span>
+            <span style={{ color: colors.foreground }}>{tips[currentTipIndex]}</span>
           </div>
         </div>
       )}

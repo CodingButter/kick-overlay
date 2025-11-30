@@ -20,11 +20,11 @@ export function ChatPage() {
           {messages.map((message) => (
             <div
               key={message.id}
-              className="flex items-start gap-3 bg-black/50 backdrop-blur rounded-lg p-3 border border-white/10"
+              className="flex items-start gap-3 bg-card/50 backdrop-blur rounded-lg p-3 border border-border/50"
             >
               <Avatar className="w-8 h-8">
                 <AvatarImage src={message.sender?.profile_picture} />
-                <AvatarFallback className="bg-kick text-black text-xs">
+                <AvatarFallback className="bg-kick text-primary-foreground text-xs">
                   {message.sender?.username?.[0]?.toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
@@ -32,7 +32,7 @@ export function ChatPage() {
                 <span className="font-semibold text-kick text-sm">
                   {message.sender?.username || 'Unknown'}
                 </span>
-                <p className="text-white text-sm break-words">{message.content}</p>
+                <p className="text-foreground text-sm break-words">{message.content}</p>
               </div>
             </div>
           ))}

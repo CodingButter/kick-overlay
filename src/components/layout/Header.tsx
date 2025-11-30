@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Gamepad2, Mic, Terminal, User } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
 
 export function Header() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { theme } = useTheme();
 
   const navItems = [
     { href: '/profile-login', label: 'Profile', icon: User },
@@ -21,12 +23,12 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="max-w-6xl mx-auto flex h-16 items-center justify-between px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group">
-          <span className="font-bold text-xl text-white tracking-tight">
-            Kick<span className="text-green-400">Overlay</span>
+          <span className="font-bold text-xl text-foreground tracking-tight">
+            {theme.siteName}<span style={{ color: theme.brandColor }}>{theme.siteNameAccent}</span>
           </span>
         </Link>
 
@@ -41,9 +43,10 @@ export function Header() {
                 to={item.href}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   active
-                    ? 'bg-green-500/10 text-green-400 shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-card'
                 }`}
+                style={active ? { backgroundColor: `${theme.brandColor}15`, color: theme.brandColor } : undefined}
               >
                 <Icon className="w-4 h-4" />
                 {item.label}
@@ -55,7 +58,7 @@ export function Header() {
         {/* Mobile Nav Toggle */}
         <button
           onClick={() => setOpen(!open)}
-          className="mobile-nav-toggle p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="mobile-nav-toggle p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
         >
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -63,7 +66,7 @@ export function Header() {
 
       {/* Mobile Nav Dropdown */}
       {open && (
-        <div className="mobile-nav-dropdown border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-xl">
+        <div className="mobile-nav-dropdown border-t border-border/50 bg-background/95 backdrop-blur-xl">
           <nav className="flex flex-col p-3 gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -75,9 +78,10 @@ export function Header() {
                   onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-medium transition-all ${
                     active
-                      ? 'bg-green-500/10 text-green-400'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? ''
+                      : 'text-foreground hover:bg-card hover:text-foreground'
                   }`}
+                  style={active ? { backgroundColor: `${theme.brandColor}15`, color: theme.brandColor } : undefined}
                 >
                   <Icon className="w-5 h-5" />
                   {item.label}

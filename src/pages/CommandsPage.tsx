@@ -30,40 +30,40 @@ function CommandCard({ command }: { command: Command }) {
     : `${cooldownSeconds}s`;
 
   return (
-    <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-green-500/50 transition-all">
+    <div className="bg-card rounded-xl p-5 border border-border hover:border-primary/50 transition-all">
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-xl font-bold text-green-400 font-mono">{command.name}</h3>
+            <h3 className="text-xl font-bold text-primary font-mono">{command.name}</h3>
             {command.arguments && (
-              <span className="text-sm text-slate-400 font-mono">{command.arguments}</span>
+              <span className="text-sm text-muted-foreground font-mono">{command.arguments}</span>
             )}
           </div>
           {command.alternatives && command.alternatives.length > 0 && (
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-slate-500">Also:</span>
+              <span className="text-xs text-muted-foreground">Also:</span>
               {command.alternatives.map((alt) => (
-                <span key={alt} className="text-xs bg-slate-700 text-green-400 px-2 py-0.5 rounded font-mono">
+                <span key={alt} className="text-xs bg-secondary text-primary px-2 py-0.5 rounded font-mono">
                   {alt}
                 </span>
               ))}
             </div>
           )}
         </div>
-        <span className="text-xs bg-slate-700 text-slate-400 px-2 py-1 rounded-full shrink-0 ml-2">
+        <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded-full shrink-0 ml-2">
           {cooldownDisplay} cooldown
         </span>
       </div>
 
-      <p className="text-slate-300 mb-4">{command.description}</p>
+      <p className="text-foreground mb-4">{command.description}</p>
 
       <div className="flex gap-2">
         <button
           onClick={copyCommand}
           className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             copied
-              ? 'bg-green-500 text-white'
-              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              ? 'bg-primary text-foreground'
+              : 'bg-secondary text-foreground hover:bg-muted'
           }`}
           title="Copy command"
         >
@@ -127,15 +127,15 @@ export function CommandsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-background">
       <Header />
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-green-400 mb-2">Chat Commands</h1>
-          <p className="text-slate-400">
+          <h1 className="text-3xl font-bold text-primary mb-2">Chat Commands</h1>
+          <p className="text-muted-foreground">
             All available bot commands for the stream
           </p>
-          <p className="text-slate-500 text-sm mt-2">
+          <p className="text-muted-foreground text-sm mt-2">
             Click on a command to copy it, then paste it in chat!
           </p>
         </div>
@@ -147,15 +147,15 @@ export function CommandsPage() {
             placeholder="Search commands..."
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-green-500"
+            className="w-full bg-card border border-border rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary"
           />
         </div>
 
         {/* Quick reference */}
-        <div className="mb-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl p-6 border border-slate-700/50 shadow-xl">
+        <div className="mb-8 bg-gradient-to-br from-card/80 to-background/80 rounded-2xl p-6 border border-border/50 shadow-xl">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-white">Quick Reference</h2>
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded-full">click to copy</span>
+            <h2 className="text-base font-semibold text-foreground">Quick Reference</h2>
+            <span className="text-xs text-muted-foreground bg-card px-2 py-1 rounded-full">click to copy</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {commands.map((cmd) => (
@@ -163,8 +163,8 @@ export function CommandsPage() {
                 key={cmd.name}
                 className={`group relative px-4 py-2 rounded-xl font-mono text-sm font-medium transition-all duration-200 ${
                   quickCopied === cmd.name
-                    ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
-                    : 'bg-slate-700/50 text-green-400 border border-slate-600/50 hover:bg-slate-700 hover:border-green-500/30 hover:shadow-lg hover:shadow-green-500/10'
+                    ? 'bg-primary text-foreground shadow-lg shadow-primary/25'
+                    : 'bg-secondary/50 text-primary border border-border/50 hover:bg-secondary hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10'
                 }`}
                 onClick={() => handleQuickCopy(cmd.name)}
                 title={cmd.description}
@@ -184,12 +184,12 @@ export function CommandsPage() {
 
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-400 mx-auto"></div>
-            <p className="text-slate-400 mt-4">Loading commands...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+            <p className="text-muted-foreground mt-4">Loading commands...</p>
           </div>
         ) : filteredCommands.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-slate-400">No commands found</p>
+            <p className="text-muted-foreground">No commands found</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -199,7 +199,7 @@ export function CommandsPage() {
           </div>
         )}
 
-        <div className="text-center mt-8 text-slate-500 text-sm">
+        <div className="text-center mt-8 text-muted-foreground text-sm">
           {filteredCommands.length} command{filteredCommands.length !== 1 ? 's' : ''} available
         </div>
 
@@ -207,7 +207,7 @@ export function CommandsPage() {
         <div className="mt-8 text-center">
           <Link
             to="/voicelist"
-            className="inline-flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
           >
             <Volume2 className="w-5 h-5" />
             Browse TTS Voices

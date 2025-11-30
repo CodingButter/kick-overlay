@@ -223,11 +223,11 @@ function VoiceCard({ voice, canPlay, onPlay }: VoiceCardProps) {
   const labelEntries = voice.labels ? Object.entries(voice.labels) : [];
 
   return (
-    <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-green-500/50 transition-all">
+    <div className="bg-card rounded-xl p-4 border border-border hover:border-primary/50 transition-all">
       <div className="flex justify-between items-start mb-3">
         <div>
-          <h3 className="text-lg font-bold text-white">{voice.name}</h3>
-          <span className="text-xs text-slate-400 uppercase tracking-wide">{voice.category}</span>
+          <h3 className="text-lg font-bold text-foreground">{voice.name}</h3>
+          <span className="text-xs text-muted-foreground uppercase tracking-wide">{voice.category}</span>
         </div>
       </div>
 
@@ -236,7 +236,7 @@ function VoiceCard({ voice, canPlay, onPlay }: VoiceCardProps) {
           {labelEntries.map(([key, value]) => (
             <span
               key={key}
-              className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded-full"
+              className="text-xs bg-secondary text-foreground px-2 py-1 rounded-full"
             >
               {value}
             </span>
@@ -252,10 +252,10 @@ function VoiceCard({ voice, canPlay, onPlay }: VoiceCardProps) {
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder="Type your message..."
-          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-green-500 resize-none"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-primary resize-none"
           rows={2}
         />
-        <div className="text-right text-xs text-slate-500 mt-1">
+        <div className="text-right text-xs text-muted-foreground mt-1">
           {message.length}/200
         </div>
       </div>
@@ -267,12 +267,12 @@ function VoiceCard({ voice, canPlay, onPlay }: VoiceCardProps) {
           disabled={(!canPlay && !playing) || loading || !message.trim()}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             playing
-              ? 'bg-green-500 text-white'
+              ? 'bg-primary text-foreground'
               : loading
-              ? 'bg-slate-700 text-slate-400 cursor-wait'
+              ? 'bg-secondary text-muted-foreground cursor-wait'
               : !canPlay || !message.trim()
-              ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              ? 'bg-secondary text-muted-foreground cursor-not-allowed'
+              : 'bg-secondary text-foreground hover:bg-muted'
           }`}
           title={canPlay || playing ? 'Play message' : 'Rate limit reached'}
         >
@@ -298,10 +298,10 @@ function VoiceCard({ voice, canPlay, onPlay }: VoiceCardProps) {
           disabled={!message.trim()}
           className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             copied
-              ? 'bg-green-500 text-white'
+              ? 'bg-primary text-foreground'
               : !message.trim()
-              ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              ? 'bg-secondary text-muted-foreground cursor-not-allowed'
+              : 'bg-secondary text-foreground hover:bg-muted'
           }`}
           title="Copy !say command"
         >
@@ -320,8 +320,8 @@ function VoiceCard({ voice, canPlay, onPlay }: VoiceCardProps) {
       </div>
 
       {/* Voice ID display */}
-      <div className="mt-3 bg-slate-900 rounded-lg px-3 py-2">
-        <code className="text-xs text-slate-500 font-mono break-all">{voice.voice_id}</code>
+      <div className="mt-3 bg-background rounded-lg px-3 py-2">
+        <code className="text-xs text-muted-foreground font-mono break-all">{voice.voice_id}</code>
       </div>
     </div>
   );
@@ -392,29 +392,29 @@ export function VoiceListPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-background">
       <Header />
       <div className="max-w-6xl mx-auto p-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-green-400 mb-2">Available Voices</h1>
-          <p className="text-slate-400">
-            Test voices and copy the <code className="text-green-400 bg-slate-800 px-2 py-1 rounded">!say</code> command
+          <h1 className="text-3xl font-bold text-primary mb-2">Available Voices</h1>
+          <p className="text-muted-foreground">
+            Test voices and copy the <code className="text-primary bg-card px-2 py-1 rounded">!say</code> command
           </p>
-          <p className="text-slate-500 text-sm mt-2">
+          <p className="text-muted-foreground text-sm mt-2">
             Type your message, click Play to hear it, then Copy to get the command
           </p>
         </div>
 
         {/* Rate limit indicator */}
         <div className="mb-4 flex items-center justify-center gap-2">
-          <span className="text-slate-400 text-sm">
+          <span className="text-muted-foreground text-sm">
             Previews remaining:{' '}
-            <span className={remaining > 3 ? 'text-green-400' : remaining > 0 ? 'text-yellow-400' : 'text-red-400'}>
+            <span className={remaining > 3 ? 'text-primary' : remaining > 0 ? 'text-warning' : 'text-destructive'}>
               {remaining}/{RATE_LIMIT_MAX}
             </span>
           </span>
           {timeLeft && (
-            <span className="text-slate-500 text-sm">(resets in {timeLeft})</span>
+            <span className="text-muted-foreground text-sm">(resets in {timeLeft})</span>
           )}
         </div>
 
@@ -425,7 +425,7 @@ export function VoiceListPage() {
             placeholder="Search voices..."
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-green-500"
+            className="w-full bg-card border border-border rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary"
           />
         </div>
 
@@ -436,8 +436,8 @@ export function VoiceListPage() {
               onClick={() => setCategoryFilter('all')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 categoryFilter === 'all'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-primary text-foreground'
+                  : 'bg-card text-foreground hover:bg-secondary'
               }`}
             >
               All Categories
@@ -448,8 +448,8 @@ export function VoiceListPage() {
                 onClick={() => setCategoryFilter(category)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
                   categoryFilter === category
-                    ? 'bg-green-500 text-white'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    ? 'bg-primary text-foreground'
+                    : 'bg-card text-foreground hover:bg-secondary'
                 }`}
               >
                 {category}
@@ -461,7 +461,7 @@ export function VoiceListPage() {
         {/* Tags filter */}
         {sortedTags.length > 0 && (
           <div className="mb-6">
-            <p className="text-slate-400 text-sm mb-2">Filter by tags:</p>
+            <p className="text-muted-foreground text-sm mb-2">Filter by tags:</p>
             <div className="flex flex-wrap gap-2">
               {sortedTags.map((tag) => (
                 <button
@@ -469,8 +469,8 @@ export function VoiceListPage() {
                   onClick={() => toggleTag(tag)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     selectedTags.has(tag)
-                      ? 'bg-green-500 text-white'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      ? 'bg-primary text-foreground'
+                      : 'bg-secondary text-foreground hover:bg-muted'
                   }`}
                 >
                   {tag}
@@ -479,7 +479,7 @@ export function VoiceListPage() {
               {selectedTags.size > 0 && (
                 <button
                   onClick={() => setSelectedTags(new Set())}
-                  className="px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                  className="px-3 py-1 rounded-full text-xs font-medium bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
                 >
                   Clear tags
                 </button>
@@ -490,12 +490,12 @@ export function VoiceListPage() {
 
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-400 mx-auto"></div>
-            <p className="text-slate-400 mt-4">Loading voices...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+            <p className="text-muted-foreground mt-4">Loading voices...</p>
           </div>
         ) : filteredVoices.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-slate-400">No voices found</p>
+            <p className="text-muted-foreground">No voices found</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -510,7 +510,7 @@ export function VoiceListPage() {
           </div>
         )}
 
-        <div className="text-center mt-8 text-slate-500 text-sm">
+        <div className="text-center mt-8 text-muted-foreground text-sm">
           {filteredVoices.length} voice{filteredVoices.length !== 1 ? 's' : ''} available
         </div>
       </div>
