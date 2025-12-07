@@ -1,5 +1,30 @@
 import { db, queries, getPowerupsFromDb, seedDefaultPowerups } from './db';
 
+// Point source types
+export type PointSource = 'chat' | 'watch' | 'drop' | 'sub' | 'gift' | 'renewal' | 'tip' | 'admin' | 'spend' | 'gamble' | 'duel';
+
+// Pending duels tracking
+interface PendingDuel {
+    challengerId: number;
+    challengerName: string;
+    targetName: string;
+    amount: number;
+    createdAt: number;
+}
+
+const pendingDuels = new Map<string, PendingDuel>(); // key: lowercase target username
+
+// Cleanup expired duels every minute
+setInterval(() => {
+    const now = Date.now();
+    const expiryTime = 60000; // 60 seconds to accept
+    for (const [key, duel] of pendingDuels.entries()) {
+        if (now - duel.createdAt > expiryTime) {
+            pendingDuels.delete(key);
+        }
+    }
+}, 30000);
+
 type Message = {
     content: string;
     user: {
@@ -13,6 +38,12 @@ type QueueDrop = (username: string, avatarUrl: string, emoteUrl?: string, active
 type QueuePowerup = (username: string, powerupId: PowerupType) => void;
 
 type IsPlayerDropping = (username: string) => boolean;
+type AddToWaitingQueue = (username: string, avatarUrl: string, emoteUrl?: string) => boolean;
+type RemoveFromWaitingQueue = (username: string) => boolean;
+type IsPlayerQueued = (username: string) => boolean;
+type StartDrop = () => { success: boolean; count: number; players: string[] };
+type ClearWaitingQueue = () => void;
+type GetWaitingQueueSize = () => number;
 
 interface CommandHandler {
     message: Message;
@@ -21,6 +52,12 @@ interface CommandHandler {
     queueDrop?: QueueDrop;
     queuePowerup?: QueuePowerup;
     isPlayerDropping?: IsPlayerDropping;
+    addToWaitingQueue?: AddToWaitingQueue;
+    removeFromWaitingQueue?: RemoveFromWaitingQueue;
+    isPlayerQueued?: IsPlayerQueued;
+    startDrop?: StartDrop;
+    clearWaitingQueue?: ClearWaitingQueue;
+    getWaitingQueueSize?: GetWaitingQueueSize;
 }
 
 // Public URL for all links (derived from PUBLIC_URL env var)
@@ -213,14 +250,18 @@ export function getChannelPoints(username: string): number {
     return points?.channel_points || 0;
 }
 
-export function addChannelPoints(username: string, points: number): number {
+export function addChannelPoints(username: string, points: number, source: PointSource = 'admin', description?: string): number {
     const userId = getOrCreateUser(username);
     queries.addChannelPoints.run(points, userId);
+
+    // Record transaction for tracking
+    queries.recordPointTransaction.run(userId, points, source, description || null);
+
     const updatedPoints = queries.getPoints.get(userId);
     return updatedPoints?.channel_points || 0;
 }
 
-export function spendChannelPoints(username: string, points: number): { success: boolean; balance: number } {
+export function spendChannelPoints(username: string, points: number, description?: string): { success: boolean; balance: number } {
     const userId = getOrCreateUser(username);
     const currentPoints = queries.getPoints.get(userId);
     const current = currentPoints?.channel_points || 0;
@@ -230,6 +271,10 @@ export function spendChannelPoints(username: string, points: number): { success:
     }
 
     queries.setChannelPoints.run(current - points, userId);
+
+    // Record spending as negative transaction
+    queries.recordPointTransaction.run(userId, -points, 'spend', description || null);
+
     return { success: true, balance: current - points };
 }
 
@@ -286,7 +331,7 @@ export function buyPowerup(username: string, powerupId: PowerupType): { success:
         return { success: true, balance: points?.channel_points || 0, quantity: powerups[powerupId] };
     }
 
-    const spendResult = spendChannelPoints(username, powerup.cost);
+    const spendResult = spendChannelPoints(username, powerup.cost, `Bought ${powerup.name} powerup`);
     if (!spendResult.success) {
         return { success: false, error: `Not enough points. Need ${powerup.cost}, have ${spendResult.balance}`, balance: spendResult.balance };
     }
@@ -410,7 +455,7 @@ const commands: Record<string, Command> = {
             let spendResult = { success: true, balance: 0 };
 
             if (!userIsAdmin) {
-                spendResult = spendChannelPoints(username, cost);
+                spendResult = spendChannelPoints(username, cost, 'TTS message (!say)');
                 if (!spendResult.success) {
                     sendChat(`@${username} You need ${cost} points to use !say (you have ${spendResult.balance}). Earn points by watching, chatting and earning them from the drop game !drop`);
                     return;
@@ -748,6 +793,515 @@ const commands: Record<string, Command> = {
                 sendChat(`@${username} 🚀 SPEED BOOST! Going faster! (${result.remaining} remaining)`);
             } else {
                 sendChat(`@${username} You don't have Speed Boost! Buy with !drop -buy boost`);
+            }
+        }
+    },
+    "!roll": {
+        cooldown: 5000, // 5 second cooldown
+        alternatives: ["!gamble", "!bet", "!slots"],
+        description: "Gamble your points! Roll the dice and win or lose",
+        arguments: "<amount|all|half>",
+        handler: async ({ message, sendChat }: CommandHandler) => {
+            const username = message.user.username;
+            const userIsAdmin = isAdmin(username);
+            const content = message.content.trim();
+            const args = content.split(/\s+/).slice(1);
+
+            // Parse bet amount
+            let betAmount: number;
+            const currentPoints = getChannelPoints(username);
+
+            if (args.length === 0) {
+                sendChat(`@${username} 🎰 Usage: !roll <amount|all|half> - Bet points to win big! Odds: 40% win 2x, 10% jackpot 5x, 50% lose`);
+                return;
+            }
+
+            const betArg = args[0]!.toLowerCase();
+            if (betArg === 'all') {
+                betAmount = currentPoints;
+            } else if (betArg === 'half') {
+                betAmount = Math.floor(currentPoints / 2);
+            } else {
+                betAmount = parseInt(betArg);
+            }
+
+            // Validate bet
+            const minBet = parseInt(process.env.GAMBLE_MIN_BET || '50');
+            const maxBet = parseInt(process.env.GAMBLE_MAX_BET || '10000');
+
+            if (isNaN(betAmount) || betAmount <= 0) {
+                sendChat(`@${username} Invalid bet amount. Use a number, 'all', or 'half'`);
+                return;
+            }
+
+            if (betAmount < minBet) {
+                sendChat(`@${username} Minimum bet is ${minBet} points!`);
+                return;
+            }
+
+            if (betAmount > maxBet && !userIsAdmin) {
+                sendChat(`@${username} Maximum bet is ${maxBet} points!`);
+                return;
+            }
+
+            if (betAmount > currentPoints) {
+                sendChat(`@${username} You only have ${currentPoints} points! Can't bet ${betAmount}`);
+                return;
+            }
+
+            // Roll the dice! (1-100)
+            const roll = Math.floor(Math.random() * 100) + 1;
+            const userId = getOrCreateUser(username);
+
+            // Odds breakdown:
+            // 1-10 (10%): JACKPOT - win 5x
+            // 11-50 (40%): WIN - win 2x
+            // 51-100 (50%): LOSE - lose bet
+
+            let resultMessage: string;
+            let netChange: number;
+
+            if (roll <= 10) {
+                // JACKPOT! 5x multiplier
+                const winnings = betAmount * 5;
+                netChange = winnings - betAmount; // Net gain
+                queries.addChannelPoints.run(netChange, userId);
+                queries.recordPointTransaction.run(userId, netChange, 'gamble', `JACKPOT! Rolled ${roll}, bet ${betAmount}, won ${winnings}`);
+                resultMessage = `🎰🎰🎰 JACKPOT!!! @${username} rolled ${roll} and WON ${winnings} points! (5x!) 🎉💰`;
+            } else if (roll <= 50) {
+                // WIN! 2x multiplier
+                const winnings = betAmount * 2;
+                netChange = winnings - betAmount; // Net gain
+                queries.addChannelPoints.run(netChange, userId);
+                queries.recordPointTransaction.run(userId, netChange, 'gamble', `Won! Rolled ${roll}, bet ${betAmount}, won ${winnings}`);
+                resultMessage = `🎰 @${username} rolled ${roll} and WON ${winnings} points! (2x) 🎉`;
+            } else {
+                // LOSE
+                netChange = -betAmount;
+                queries.addChannelPoints.run(netChange, userId);
+                queries.recordPointTransaction.run(userId, netChange, 'gamble', `Lost! Rolled ${roll}, lost ${betAmount}`);
+                const newBalance = currentPoints - betAmount;
+                resultMessage = `🎰 @${username} rolled ${roll} and lost ${betAmount} points... 😢 (Balance: ${newBalance})`;
+            }
+
+            sendChat(resultMessage);
+        }
+    },
+    "!coinflip": {
+        cooldown: 5000,
+        alternatives: ["!flip", "!cf"],
+        description: "Flip a coin! 50/50 chance to double your bet or lose it",
+        arguments: "<amount|all|half> [heads|tails]",
+        handler: async ({ message, sendChat }: CommandHandler) => {
+            const username = message.user.username;
+            const userIsAdmin = isAdmin(username);
+            const content = message.content.trim();
+            const args = content.split(/\s+/).slice(1);
+
+            if (args.length === 0) {
+                sendChat(`@${username} 🪙 Usage: !coinflip <amount> [heads|tails] - 50/50 chance to double your bet!`);
+                return;
+            }
+
+            // Parse bet amount
+            let betAmount: number;
+            const currentPoints = getChannelPoints(username);
+
+            const betArg = args[0]!.toLowerCase();
+            if (betArg === 'all') {
+                betAmount = currentPoints;
+            } else if (betArg === 'half') {
+                betAmount = Math.floor(currentPoints / 2);
+            } else {
+                betAmount = parseInt(betArg);
+            }
+
+            // Parse choice (optional)
+            const choice = args[1]?.toLowerCase() || (Math.random() < 0.5 ? 'heads' : 'tails');
+            const validChoice = choice === 'heads' || choice === 'tails' ? choice : 'heads';
+
+            // Validate bet
+            const minBet = parseInt(process.env.GAMBLE_MIN_BET || '50');
+            const maxBet = parseInt(process.env.GAMBLE_MAX_BET || '10000');
+
+            if (isNaN(betAmount) || betAmount <= 0) {
+                sendChat(`@${username} Invalid bet amount.`);
+                return;
+            }
+
+            if (betAmount < minBet) {
+                sendChat(`@${username} Minimum bet is ${minBet} points!`);
+                return;
+            }
+
+            if (betAmount > maxBet && !userIsAdmin) {
+                sendChat(`@${username} Maximum bet is ${maxBet} points!`);
+                return;
+            }
+
+            if (betAmount > currentPoints) {
+                sendChat(`@${username} You only have ${currentPoints} points!`);
+                return;
+            }
+
+            // Flip the coin
+            const result = Math.random() < 0.5 ? 'heads' : 'tails';
+            const won = result === validChoice;
+            const userId = getOrCreateUser(username);
+
+            if (won) {
+                const winnings = betAmount * 2;
+                const netChange = betAmount; // Net gain (double minus original)
+                queries.addChannelPoints.run(netChange, userId);
+                queries.recordPointTransaction.run(userId, netChange, 'gamble', `Coinflip won! ${validChoice} was correct, won ${winnings}`);
+                sendChat(`🪙 ${result.toUpperCase()}! @${username} called ${validChoice} and WON ${winnings} points! 🎉`);
+            } else {
+                queries.addChannelPoints.run(-betAmount, userId);
+                queries.recordPointTransaction.run(userId, -betAmount, 'gamble', `Coinflip lost! Called ${validChoice}, got ${result}`);
+                const newBalance = currentPoints - betAmount;
+                sendChat(`🪙 ${result.toUpperCase()}! @${username} called ${validChoice} and lost ${betAmount} points... (Balance: ${newBalance})`);
+            }
+        }
+    },
+    "!duel": {
+        cooldown: 5000,
+        alternatives: ["!challenge", "!fight"],
+        description: "Challenge another user to a points duel! Winner takes all",
+        arguments: "<@username> <amount>",
+        handler: async ({ message, sendChat }: CommandHandler) => {
+            const username = message.user.username;
+            const content = message.content.trim();
+            const args = content.split(/\s+/).slice(1);
+
+            if (args.length < 2) {
+                sendChat(`@${username} ⚔️ Usage: !duel @username <amount> - Challenge someone to a duel! They have 60s to !accept`);
+                return;
+            }
+
+            // Parse target username (remove @ if present)
+            const targetArg = args[0]!;
+            const targetName = targetArg.startsWith('@') ? targetArg.slice(1) : targetArg;
+            const targetLower = targetName.toLowerCase();
+
+            // Can't duel yourself
+            if (targetLower === username.toLowerCase()) {
+                sendChat(`@${username} You can't duel yourself!`);
+                return;
+            }
+
+            // Parse bet amount
+            const currentPoints = getChannelPoints(username);
+            const betArg = args[1]!.toLowerCase();
+            let betAmount: number;
+
+            if (betArg === 'all') {
+                betAmount = currentPoints;
+            } else if (betArg === 'half') {
+                betAmount = Math.floor(currentPoints / 2);
+            } else {
+                betAmount = parseInt(betArg);
+            }
+
+            // Validate bet
+            const minBet = parseInt(process.env.DUEL_MIN_BET || '100');
+            const maxBet = parseInt(process.env.DUEL_MAX_BET || '5000');
+
+            if (isNaN(betAmount) || betAmount <= 0) {
+                sendChat(`@${username} Invalid bet amount.`);
+                return;
+            }
+
+            if (betAmount < minBet) {
+                sendChat(`@${username} Minimum duel bet is ${minBet} points!`);
+                return;
+            }
+
+            if (betAmount > maxBet && !isAdmin(username)) {
+                sendChat(`@${username} Maximum duel bet is ${maxBet} points!`);
+                return;
+            }
+
+            if (betAmount > currentPoints) {
+                sendChat(`@${username} You only have ${currentPoints} points!`);
+                return;
+            }
+
+            // Check if target already has a pending duel
+            if (pendingDuels.has(targetLower)) {
+                sendChat(`@${username} ${targetName} already has a pending duel! They need to !accept or wait for it to expire.`);
+                return;
+            }
+
+            // Check if challenger already challenged someone
+            for (const duel of pendingDuels.values()) {
+                if (duel.challengerName.toLowerCase() === username.toLowerCase()) {
+                    sendChat(`@${username} You already have a pending duel! Wait for them to respond or for it to expire.`);
+                    return;
+                }
+            }
+
+            // Create the duel
+            const challengerId = getOrCreateUser(username);
+            pendingDuels.set(targetLower, {
+                challengerId,
+                challengerName: username,
+                targetName: targetName,
+                amount: betAmount,
+                createdAt: Date.now(),
+            });
+
+            sendChat(`⚔️ @${targetName}! @${username} challenges you to a duel for ${betAmount} points! Type !accept within 60 seconds to fight! (or !decline)`);
+        }
+    },
+    "!accept": {
+        cooldown: 1000,
+        description: "Accept a pending duel challenge",
+        arguments: "",
+        handler: async ({ message, sendChat }: CommandHandler) => {
+            const username = message.user.username;
+            const usernameLower = username.toLowerCase();
+
+            // Check if user has a pending duel
+            const duel = pendingDuels.get(usernameLower);
+            if (!duel) {
+                sendChat(`@${username} You don't have any pending duel challenges!`);
+                return;
+            }
+
+            // Check if duel expired
+            if (Date.now() - duel.createdAt > 60000) {
+                pendingDuels.delete(usernameLower);
+                sendChat(`@${username} That duel challenge has expired!`);
+                return;
+            }
+
+            // Check if both players have enough points
+            const challengerPoints = getChannelPoints(duel.challengerName);
+            const targetPoints = getChannelPoints(username);
+
+            if (challengerPoints < duel.amount) {
+                pendingDuels.delete(usernameLower);
+                sendChat(`@${username} ${duel.challengerName} no longer has enough points for this duel!`);
+                return;
+            }
+
+            if (targetPoints < duel.amount) {
+                pendingDuels.delete(usernameLower);
+                sendChat(`@${username} You don't have enough points! Need ${duel.amount}, have ${targetPoints}`);
+                return;
+            }
+
+            // Remove the pending duel
+            pendingDuels.delete(usernameLower);
+
+            // FIGHT! 50/50 coin flip
+            const challengerWins = Math.random() < 0.5;
+            const winner = challengerWins ? duel.challengerName : username;
+            const loser = challengerWins ? username : duel.challengerName;
+
+            const winnerId = getOrCreateUser(winner);
+            const loserId = getOrCreateUser(loser);
+
+            // Transfer points
+            queries.addChannelPoints.run(duel.amount, winnerId);
+            queries.addChannelPoints.run(-duel.amount, loserId);
+
+            // Record transactions
+            queries.recordPointTransaction.run(winnerId, duel.amount, 'duel', `Won duel vs ${loser}`);
+            queries.recordPointTransaction.run(loserId, -duel.amount, 'duel', `Lost duel vs ${winner}`);
+
+            const winnerNewBalance = getChannelPoints(winner);
+            sendChat(`⚔️💥 DUEL COMPLETE! @${winner} defeats @${loser} and wins ${duel.amount} points! (New balance: ${winnerNewBalance})`);
+        }
+    },
+    "!decline": {
+        cooldown: 1000,
+        alternatives: ["!deny", "!reject"],
+        description: "Decline a pending duel challenge",
+        arguments: "",
+        handler: async ({ message, sendChat }: CommandHandler) => {
+            const username = message.user.username;
+            const usernameLower = username.toLowerCase();
+
+            const duel = pendingDuels.get(usernameLower);
+            if (!duel) {
+                sendChat(`@${username} You don't have any pending duel challenges!`);
+                return;
+            }
+
+            pendingDuels.delete(usernameLower);
+            sendChat(`@${username} declined the duel from @${duel.challengerName}. No points were lost.`);
+        }
+    },
+    "!cancel": {
+        cooldown: 1000,
+        description: "Cancel your pending duel challenge",
+        arguments: "",
+        handler: async ({ message, sendChat }: CommandHandler) => {
+            const username = message.user.username;
+            const usernameLower = username.toLowerCase();
+
+            // Find if this user has an outgoing challenge
+            let foundKey: string | null = null;
+            for (const [key, duel] of pendingDuels.entries()) {
+                if (duel.challengerName.toLowerCase() === usernameLower) {
+                    foundKey = key;
+                    break;
+                }
+            }
+
+            if (!foundKey) {
+                sendChat(`@${username} You don't have any pending duel challenges to cancel!`);
+                return;
+            }
+
+            pendingDuels.delete(foundKey);
+            sendChat(`@${username} Your duel challenge has been cancelled.`);
+        }
+    },
+    // ==========================================
+    // DROP QUEUE COMMANDS
+    // ==========================================
+    "!queuedrop": {
+        cooldown: 5000,
+        alternatives: ["!qdrop", "!joindrop"],
+        description: "Join the drop queue and wait for !startdrop",
+        arguments: "[emote]",
+        handler: async ({ message, sendChat, addToWaitingQueue, isPlayerQueued, isPlayerDropping, getWaitingQueueSize }: CommandHandler) => {
+            if (!addToWaitingQueue || !isPlayerQueued || !isPlayerDropping || !getWaitingQueueSize) {
+                console.error('Queue functions not available');
+                return;
+            }
+
+            const username = message.user.username;
+            const content = message.content.replace(/^!(queuedrop|qdrop|joindrop)\s*/i, '').trim();
+
+            // Check if already queued
+            if (isPlayerQueued(username)) {
+                sendChat(`@${username} You're already in the queue! Wait for !startdrop`);
+                return;
+            }
+
+            // Check if already dropping
+            if (isPlayerDropping(username)) {
+                sendChat(`@${username} You already have an active dropper! Wait for it to land.`);
+                return;
+            }
+
+            // Check for emote pattern: [emote:ID:name]
+            let emoteUrl: string | undefined;
+            const emoteMatch = content.match(/\[emote:(\d+):([^\]]+)\]/);
+            if (emoteMatch && emoteMatch[1]) {
+                emoteUrl = `https://files.kick.com/emotes/${emoteMatch[1]}/fullsize`;
+            }
+
+            // Get user's custom drop image if set, otherwise use their Kick avatar
+            const userData = getUserData(username);
+            const avatarUrl = userData.dropImage || message.user.avatar_url;
+
+            const success = addToWaitingQueue(username, avatarUrl, emoteUrl);
+            if (success) {
+                const queueSize = getWaitingQueueSize();
+                sendChat(`@${username} You joined the drop queue! Position: #${queueSize} | ${queueSize} player${queueSize !== 1 ? 's' : ''} waiting`);
+            } else {
+                sendChat(`@${username} Couldn't join the queue. Try again!`);
+            }
+        }
+    },
+    "!leavedrop": {
+        cooldown: 1000,
+        alternatives: ["!unqdrop", "!canceldrop"],
+        description: "Leave the drop queue",
+        arguments: "",
+        handler: async ({ message, sendChat, removeFromWaitingQueue, isPlayerQueued }: CommandHandler) => {
+            if (!removeFromWaitingQueue || !isPlayerQueued) {
+                console.error('Queue functions not available');
+                return;
+            }
+
+            const username = message.user.username;
+
+            if (!isPlayerQueued(username)) {
+                sendChat(`@${username} You're not in the queue!`);
+                return;
+            }
+
+            removeFromWaitingQueue(username);
+            sendChat(`@${username} You left the drop queue.`);
+        }
+    },
+    "!startdrop": {
+        cooldown: 5000,
+        alternatives: ["!go", "!launch"],
+        description: "Start the drop for all queued players (admin/broadcaster only)",
+        arguments: "",
+        handler: async ({ message, sendChat, startDrop, getWaitingQueueSize }: CommandHandler) => {
+            if (!startDrop || !getWaitingQueueSize) {
+                console.error('Queue functions not available');
+                return;
+            }
+
+            const username = message.user.username;
+
+            // Only admins can start the drop
+            if (!isAdmin(username)) {
+                sendChat(`@${username} Only the streamer can start the drop!`);
+                return;
+            }
+
+            const queueSize = getWaitingQueueSize();
+            if (queueSize === 0) {
+                sendChat(`No players in the queue! Use !queue to join.`);
+                return;
+            }
+
+            const result = startDrop();
+            if (result.success) {
+                sendChat(`🎮 DROP TIME! ${result.count} player${result.count !== 1 ? 's' : ''} dropping: ${result.players.slice(0, 10).join(', ')}${result.count > 10 ? ` and ${result.count - 10} more!` : '!'}`);
+            } else {
+                sendChat(`Failed to start the drop. Try again!`);
+            }
+        }
+    },
+    "!clearqueue": {
+        cooldown: 1000,
+        description: "Clear the drop queue (admin only)",
+        arguments: "",
+        handler: async ({ message, sendChat, clearWaitingQueue, getWaitingQueueSize }: CommandHandler) => {
+            if (!clearWaitingQueue || !getWaitingQueueSize) {
+                console.error('Queue functions not available');
+                return;
+            }
+
+            const username = message.user.username;
+
+            // Only admins can clear the queue
+            if (!isAdmin(username)) {
+                sendChat(`@${username} Only the streamer can clear the queue!`);
+                return;
+            }
+
+            const count = getWaitingQueueSize();
+            clearWaitingQueue();
+            sendChat(`Queue cleared! ${count} player${count !== 1 ? 's' : ''} removed.`);
+        }
+    },
+    "!queuesize": {
+        cooldown: 5000,
+        alternatives: ["!qsize", "!waiting"],
+        description: "Check how many players are in the drop queue",
+        arguments: "",
+        handler: async ({ message, sendChat, getWaitingQueueSize }: CommandHandler) => {
+            if (!getWaitingQueueSize) {
+                console.error('Queue functions not available');
+                return;
+            }
+
+            const count = getWaitingQueueSize();
+            if (count === 0) {
+                sendChat(`No players in the drop queue. Use !queue to join!`);
+            } else {
+                sendChat(`${count} player${count !== 1 ? 's' : ''} waiting in the drop queue. Type !queue to join!`);
             }
         }
     }

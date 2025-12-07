@@ -145,7 +145,20 @@ CREATE TABLE IF NOT EXISTS goals (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Point transaction history (tracks sources of all points)
+CREATE TABLE IF NOT EXISTS point_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  amount INTEGER NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('chat', 'watch', 'drop', 'sub', 'gift', 'renewal', 'tip', 'admin', 'spend', 'gamble', 'duel')),
+  description TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_point_transactions_user_id ON point_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_point_transactions_source ON point_transactions(source);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_user_points_user_id ON user_points(user_id);
 CREATE INDEX IF NOT EXISTS idx_powerup_inventory_user_id ON powerup_inventory(user_id);

@@ -53,3 +53,9 @@ Thumbs.db
 .eslintcache
 .cache
 .bun
+
+# AgentVibes TTS audio files
+.claude/audio/
+
+# Playwright MCP screenshots
+.playwright-mcp/

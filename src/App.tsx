@@ -14,6 +14,7 @@ import { VoiceListPage } from '@/pages/VoiceListPage';
 import { CommandsPage } from '@/pages/CommandsPage';
 import { DropGameRulesPage } from '@/pages/DropGameRulesPage';
 import { AdminPage } from '@/pages/AdminPage';
+import { WikiPage } from '@/pages/WikiPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: 'commands', element: <CommandsPage /> },
       { path: 'drop-game-rules', element: <DropGameRulesPage /> },
       { path: 'admin', element: <AdminPage /> },
+      { path: 'wiki', element: <WikiPage /> },
     ],
   },
   {

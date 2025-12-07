@@ -62,7 +62,7 @@ function CommandCard({ command }: { command: Command }) {
           onClick={copyCommand}
           className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             copied
-              ? 'bg-primary text-foreground'
+              ? 'bg-primary text-primary-foreground'
               : 'bg-secondary text-foreground hover:bg-muted'
           }`}
           title="Copy command"

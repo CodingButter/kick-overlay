@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Gamepad2, Mic, Terminal, User } from 'lucide-react';
+import { Menu, X, Gamepad2, Mic, Terminal, User, Book } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
 export function Header() {
@@ -13,6 +13,7 @@ export function Header() {
     { href: '/commands', label: 'Commands', icon: Terminal },
     { href: '/voicelist', label: 'Voices', icon: Mic },
     { href: '/drop-game-rules', label: 'Drop Game', icon: Gamepad2 },
+    { href: '/wiki', label: 'Wiki', icon: Book },
   ];
 
   const isActive = (href: string) => {

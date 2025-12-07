@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "mcp-server-playwright",
+      "args": ["--executable-path", "/home/codingbutter/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome"]
+    }
+  }
+}

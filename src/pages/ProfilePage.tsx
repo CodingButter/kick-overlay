@@ -1,518 +1,114 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
-
-interface UserData {
-  username?: string;
-  voiceId?: string;
-  dropPoints: number;
-  totalDrops: number;
-  channelPoints: number;
-  dropImage?: string;
-  country?: string;
-  powerups?: Record<string, number>;
-}
-
-interface Powerup {
-  id: string;
-  name: string;
-  description: string;
-  cost: number;
-  emoji: string;
-  effect: string;
-}
-
-interface Voice {
-  voice_id: string;
-  name: string;
-  category: string;
-  labels?: {
-    accent?: string;
-    description?: string;
-    age?: string;
-    gender?: string;
-  };
-}
-
-// Common countries list with codes
-const countries = [
-  { code: '', name: '-- Select Country --' },
-  { code: 'US', name: 'United States' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'KR', name: 'South Korea' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'MX', name: 'Mexico' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'SE', name: 'Sweden' },
-  { code: 'NO', name: 'Norway' },
-  { code: 'DK', name: 'Denmark' },
-  { code: 'FI', name: 'Finland' },
-  { code: 'PL', name: 'Poland' },
-  { code: 'RU', name: 'Russia' },
-  { code: 'IN', name: 'India' },
-  { code: 'CN', name: 'China' },
-  { code: 'TW', name: 'Taiwan' },
-  { code: 'PH', name: 'Philippines' },
-  { code: 'ID', name: 'Indonesia' },
-  { code: 'TH', name: 'Thailand' },
-  { code: 'VN', name: 'Vietnam' },
-  { code: 'MY', name: 'Malaysia' },
-  { code: 'SG', name: 'Singapore' },
-  { code: 'NZ', name: 'New Zealand' },
-  { code: 'AR', name: 'Argentina' },
-  { code: 'CL', name: 'Chile' },
-  { code: 'CO', name: 'Colombia' },
-  { code: 'PE', name: 'Peru' },
-  { code: 'ZA', name: 'South Africa' },
-  { code: 'EG', name: 'Egypt' },
-  { code: 'NG', name: 'Nigeria' },
-  { code: 'AE', name: 'UAE' },
-  { code: 'SA', name: 'Saudi Arabia' },
-  { code: 'IL', name: 'Israel' },
-  { code: 'TR', name: 'Turkey' },
-  { code: 'UA', name: 'Ukraine' },
-  { code: 'CZ', name: 'Czech Republic' },
-  { code: 'AT', name: 'Austria' },
-  { code: 'CH', name: 'Switzerland' },
-  { code: 'BE', name: 'Belgium' },
-  { code: 'PT', name: 'Portugal' },
-  { code: 'IE', name: 'Ireland' },
-  { code: 'GR', name: 'Greece' },
-  { code: 'HU', name: 'Hungary' },
-  { code: 'RO', name: 'Romania' },
-].sort((a, b) => (a.code === '' ? -1 : b.code === '' ? 1 : a.name.localeCompare(b.name)));
-
-// Get flag URL from country code
-const getFlagUrl = (countryCode: string) => {
-  if (!countryCode) return null;
-  return `https://flagcdn.com/48x36/${countryCode.toLowerCase()}.png`;
-};
+import { useProfileSession } from './profile/hooks/useProfileSession';
+import { useProfileData } from './profile/hooks/useProfileData';
+import { LoadingState, ErrorState } from './profile/components/LoadingState';
+import { VerificationFlow } from './profile/components/VerificationFlow';
+import { StatsSection } from './profile/components/StatsSection';
+import { PointsBreakdown } from './profile/components/PointsBreakdown';
+import { PowerupShop } from './profile/components/PowerupShop';
+import { SettingsSection } from './profile/components/SettingsSection';
+import { HelpSection } from './profile/components/HelpSection';
 
 export function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
 
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [powerups, setPowerups] = useState<Record<string, Powerup>>({});
-  const [userPowerups, setUserPowerups] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [buying, setBuying] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  // Profile data hook
+  const profileData = useProfileData({ username, isVerified: false });
 
-  // Verification state
-  const [isVerified, setIsVerified] = useState(false);
-  const [verifyCode, setVerifyCode] = useState<string | null>(null);
-  const [verifyStatus, setVerifyStatus] = useState<'loading' | 'ready' | 'waiting' | 'verified'>('loading');
+  // Session/verification hook
+  const session = useProfileSession({
+    username,
+    onVerified: profileData.loadProfileData,
+  });
 
-  // Form state
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
-  const [dropImageUrl, setDropImageUrl] = useState<string>('');
-  const [selectedCountry, setSelectedCountry] = useState<string>('');
-  const [copied, setCopied] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  // Cookie helpers
-  const getSessionCookie = useCallback((user: string): string | null => {
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === `profile_session_${user}`) {
-        return value;
-      }
-    }
+  // Redirect if no username
+  if (!username) {
+    navigate('/profile-login');
     return null;
-  }, []);
+  }
 
-  const setSessionCookie = useCallback((user: string, token: string) => {
-    const expires = new Date();
-    expires.setDate(expires.getDate() + 7);
-    document.cookie = `profile_session_${user}=${token}; expires=${expires.toUTCString()}; path=/; SameSite=Strict`;
-  }, []);
+  // Handle save settings
+  const handleSave = useCallback(async () => {
+    const res = await fetch(`/api/profile/${username}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        voiceId: profileData.selectedVoice || undefined,
+        dropImage: profileData.dropImageUrl || undefined,
+        country: profileData.selectedCountry || undefined,
+      }),
+    });
 
-  const loadProfileData = useCallback(async () => {
-    if (!username) return;
-    try {
-      const profileRes = await fetch(`/api/profile/${username}`);
-      if (profileRes.ok) {
-        const profile = await profileRes.json();
-        setUserData(profile);
-        setSelectedVoice(profile.voiceId || '');
-        setDropImageUrl(profile.dropImage || '');
-        setSelectedCountry(profile.country || '');
-      }
-
-      const voicesRes = await fetch('/api/voices');
-      if (voicesRes.ok) {
-        const voicesData = await voicesRes.json();
-        setVoices(Array.isArray(voicesData) ? voicesData : voicesData.voices || []);
-      }
-
-      const powerupsRes = await fetch('/api/powerups');
-      if (powerupsRes.ok) {
-        const powerupsData = await powerupsRes.json();
-        setPowerups(powerupsData);
-      }
-
-      const userPowerupsRes = await fetch(`/api/powerups/${username}`);
-      if (userPowerupsRes.ok) {
-        const userPowerupsData = await userPowerupsRes.json();
-        setUserPowerups(userPowerupsData);
-      }
-    } catch {
-      setError('Failed to load profile data.');
+    if (res.ok) {
+      const updated = await res.json();
+      profileData.setUserData(updated);
+    } else {
+      throw new Error('Failed to save');
     }
-  }, [username]);
+  }, [username, profileData]);
 
-  // Initialize session on mount
-  useEffect(() => {
-    if (!username) {
-      navigate('/profile-login');
-      return;
-    }
-
-    const initSession = async () => {
-      const sessionToken = getSessionCookie(username);
-      if (sessionToken) {
-        try {
-          const res = await fetch(`/api/session/validate/${username}/${sessionToken}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.valid) {
-              setIsVerified(true);
-              setVerifyStatus('verified');
-              setLoading(false);
-              loadProfileData();
-              return;
-            }
-          }
-        } catch {
-          // Session validation failed
-        }
-      }
-
-      try {
-        const res = await fetch(`/api/verify/generate/${username}`, { method: 'POST' });
-        if (res.ok) {
-          const data = await res.json();
-          setVerifyCode(data.code);
-          setVerifyStatus('ready');
-        } else {
-          setError('Failed to generate verification code');
-        }
-      } catch {
-        setError('Failed to connect to server');
-      }
-      setLoading(false);
-    };
-    initSession();
-  }, [username, navigate, getSessionCookie, loadProfileData]);
-
-  // Poll for profile updates
-  useEffect(() => {
-    if (!isVerified || !username) return;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const userPowerupsRes = await fetch(`/api/powerups/${username}`);
-        if (userPowerupsRes.ok) {
-          setUserPowerups(await userPowerupsRes.json());
-        }
-
-        const profileRes = await fetch(`/api/profile/${username}`);
-        if (profileRes.ok) {
-          const profile = await profileRes.json();
-          setUserData((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  channelPoints: profile.channelPoints,
-                  dropPoints: profile.dropPoints,
-                  totalDrops: profile.totalDrops,
-                }
-              : prev
-          );
-        }
-      } catch {
-        // Silently continue
-      }
-    }, 10000);
-
-    return () => clearInterval(pollInterval);
-  }, [isVerified, username]);
-
-  // Poll for verification
-  useEffect(() => {
-    if (!verifyCode || verifyStatus !== 'waiting' || !username) return;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/verify/check/${username}/${verifyCode}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.verified) {
-            setIsVerified(true);
-            setVerifyStatus('verified');
-            clearInterval(pollInterval);
-            const sessionToken = data.sessionToken || verifyCode;
-            setSessionCookie(username, sessionToken);
-            loadProfileData();
-          }
-        }
-      } catch {
-        // Continue polling
-      }
-    }, 2000);
-
-    const timeout = setTimeout(() => {
-      clearInterval(pollInterval);
-      setError('Verification expired. Please refresh the page to try again.');
-      setVerifyStatus('ready');
-    }, 5 * 60 * 1000);
-
-    return () => {
-      clearInterval(pollInterval);
-      clearTimeout(timeout);
-    };
-  }, [verifyCode, verifyStatus, username, setSessionCookie, loadProfileData]);
-
-  const handleCopyCommand = async () => {
-    const command = `!verify ${verifyCode}`;
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      const textArea = document.createElement('textarea');
-      textArea.value = command;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image upload
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !username) return;
 
-    setUploading(true);
-    setMessage(null);
+    const formData = new FormData();
+    formData.append('image', file);
 
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
+    const res = await fetch(`/api/upload/${username}`, {
+      method: 'POST',
+      body: formData,
+    });
 
-      const res = await fetch(`/api/upload/${username}`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setDropImageUrl(data.imageUrl);
-        setMessage('Image uploaded successfully!');
-        const profileRes = await fetch(`/api/profile/${username}`);
-        if (profileRes.ok) {
-          setUserData(await profileRes.json());
-        }
-      } else {
-        const err = await res.json();
-        setMessage(err.error || 'Failed to upload image.');
-      }
-    } catch {
-      setMessage('Failed to upload image.');
-    }
-
-    setUploading(false);
-  };
-
-  const handleSave = async () => {
-    if (!username) return;
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      const res = await fetch(`/api/profile/${username}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voiceId: selectedVoice || undefined,
-          dropImage: dropImageUrl || undefined,
-          country: selectedCountry || undefined,
-        }),
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setUserData(updated);
-        setMessage('Settings saved successfully!');
-      } else {
-        setMessage('Failed to save settings.');
-      }
-    } catch {
-      setMessage('Failed to save settings.');
-    }
-
-    setSaving(false);
-  };
-
-  const handleBuyPowerup = async (powerupId: string) => {
-    if (!username) return;
-    setBuying(powerupId);
-    setMessage(null);
-
-    try {
-      const res = await fetch(`/api/powerups/${username}/buy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ powerupId }),
-      });
-
+    if (res.ok) {
       const data = await res.json();
-      if (data.success) {
-        setMessage(`Purchased ${powerups[powerupId]?.name}! You now have ${data.quantity}.`);
-        setUserPowerups((prev) => ({ ...prev, [powerupId]: data.quantity }));
-        setUserData((prev) => (prev ? { ...prev, channelPoints: data.balance } : prev));
-      } else {
-        setMessage(data.error || 'Failed to purchase powerup.');
+      profileData.setDropImageUrl(data.imageUrl);
+      const profileRes = await fetch(`/api/profile/${username}`);
+      if (profileRes.ok) {
+        profileData.setUserData(await profileRes.json());
       }
-    } catch {
-      setMessage('Failed to purchase powerup.');
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to upload');
     }
+  }, [username, profileData]);
 
-    setBuying(null);
-  };
+  // Handle powerup purchase
+  const handlePurchase = useCallback((powerupId: string, quantity: number, balance: number) => {
+    profileData.setUserPowerups((prev) => ({ ...prev, [powerupId]: quantity }));
+    profileData.setUserData((prev) => (prev ? { ...prev, channelPoints: balance } : prev));
+  }, [profileData]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Header />
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    );
+  // Loading state
+  if (session.loading) {
+    return <LoadingState />;
   }
 
+  // Error state
+  const error = session.error || profileData.error;
   if (error) {
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Header />
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="bg-destructive/20 border border-destructive rounded-lg p-6 max-w-md text-center">
-            <h1 className="text-2xl font-bold text-destructive mb-4">Error</h1>
-            <p className="text-foreground">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-4 bg-destructive hover:bg-destructive/90 text-destructive-foreground px-4 py-2 rounded"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <ErrorState error={error} />;
   }
 
   // Verification flow
-  if (!isVerified) {
+  if (!session.isVerified && session.verifyCode) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Header />
-        <div className="max-w-lg mx-auto px-4 py-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-primary mb-2">{username}'s Profile</h1>
-            <p className="text-muted-foreground">Verify your identity to access your settings</p>
-          </div>
-
-          <div className="bg-card rounded-xl p-6 border border-border">
-            {verifyStatus === 'ready' && (
-              <>
-                <div className="text-center mb-6">
-                  <p className="text-foreground mb-4">
-                    To prove you are <span className="text-primary font-bold">{username}</span>, paste this command in chat:
-                  </p>
-                  <div className="bg-background p-4 rounded-lg mb-4">
-                    <code className="text-xl font-bold text-primary block mb-3">!verify {verifyCode}</code>
-                    <button
-                      onClick={handleCopyCommand}
-                      className={`px-4 py-2 rounded font-medium transition-colors ${
-                        copied ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-muted text-foreground'
-                      }`}
-                    >
-                      {copied ? 'Copied!' : 'Copy Command'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-4 text-left">
-                  <h3 className="font-bold text-lg text-foreground">Instructions:</h3>
-                  <ol className="list-decimal list-inside flex flex-col gap-2 text-muted-foreground">
-                    <li>Copy the command above</li>
-                    <li>Paste it in the stream chat on Kick</li>
-                    <li>Click the button below to start verification</li>
-                    <li>This page will automatically unlock</li>
-                  </ol>
-                </div>
-
-                <button
-                  onClick={() => setVerifyStatus('waiting')}
-                  className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-lg transition-colors"
-                >
-                  I'm Ready - Start Verification
-                </button>
-              </>
-            )}
-
-            {verifyStatus === 'waiting' && (
-              <div className="text-center">
-                <div className="mb-6">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-lg text-foreground">Waiting for verification...</p>
-                </div>
-
-                <div className="bg-background p-4 rounded-lg mb-4">
-                  <p className="text-sm text-muted-foreground mb-2">Paste this in chat:</p>
-                  <code className="text-xl font-bold text-primary block mb-3">!verify {verifyCode}</code>
-                  <button
-                    onClick={handleCopyCommand}
-                    className={`px-4 py-2 rounded font-medium transition-colors ${
-                      copied ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-muted text-foreground'
-                    }`}
-                  >
-                    {copied ? 'Copied!' : 'Copy Command'}
-                  </button>
-                </div>
-
-                <p className="text-muted-foreground text-sm">
-                  This page will automatically update when you verify.
-                  <br />
-                  Code expires in 5 minutes.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <p className="text-center text-muted-foreground text-sm mt-8">This ensures only you can modify your settings.</p>
-        </div>
-      </div>
+      <VerificationFlow
+        username={username}
+        verifyCode={session.verifyCode}
+        verifyStatus={session.verifyStatus}
+        onStartWaiting={session.startWaiting}
+      />
     );
   }
 
   // Verified profile view
-  const totalPoints = (userData?.channelPoints || 0) + (userData?.dropPoints || 0);
+  if (!profileData.userData) {
+    return <LoadingState />;
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -523,287 +119,32 @@ export function ProfilePage() {
           <p className="text-muted-foreground">Manage your stream settings and view your stats</p>
         </div>
 
-        {/* Stats Section */}
-        <div className="bg-card rounded-xl p-6 mb-6 border border-border overflow-hidden">
-          <h2 className="text-xl font-bold mb-4 text-primary">Your Stats</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 overflow-hidden">
-            <div className="bg-secondary rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-warning">{totalPoints}</div>
-              <div className="text-sm text-muted-foreground">Total Points</div>
-            </div>
-            <div className="bg-secondary rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-accent-foreground">{userData?.channelPoints || 0}</div>
-              <div className="text-sm text-muted-foreground">Channel Points</div>
-            </div>
-            <div className="bg-secondary rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{userData?.dropPoints || 0}</div>
-              <div className="text-sm text-muted-foreground">Drop Points</div>
-            </div>
-            <div className="bg-secondary rounded-lg p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{userData?.totalDrops || 0}</div>
-              <div className="text-sm text-muted-foreground">Total Drops</div>
-            </div>
-          </div>
-        </div>
+        <StatsSection userData={profileData.userData} />
 
-        {/* Powerup Shop Section */}
-        <div className="bg-card rounded-xl p-6 mb-6 border border-border overflow-hidden">
-          <h2 className="text-xl font-bold mb-2 text-accent-foreground">Powerup Shop</h2>
-          <p className="text-muted-foreground text-sm mb-4">
-            Purchase powerups to use in the drop game! Activate them with chat commands while dropping.
-            <Link to="/drop-game-rules" className="text-accent-foreground hover:text-primary ml-1">
-              View Rules
-            </Link>
-          </p>
+        <PointsBreakdown username={username} />
 
-          {/* User's current powerups inventory */}
-          {Object.values(userPowerups).some((qty) => qty > 0) && (
-            <div className="bg-secondary/50 rounded-lg p-4 mb-4">
-              <h3 className="text-sm font-semibold text-foreground mb-2">Your Inventory</h3>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(userPowerups).map(([id, quantity]) => {
-                  if (quantity <= 0) return null;
-                  const powerup = powerups[id];
-                  if (!powerup) return null;
-                  return (
-                    <div key={id} className="bg-card rounded-lg px-3 py-2 flex items-center gap-2">
-                      <span className="text-xl">{powerup.emoji}</span>
-                      <span className="text-foreground font-medium">{powerup.name}</span>
-                      <span className="bg-accent text-accent-foreground text-xs px-2 py-0.5 rounded-full">x{quantity}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+        <PowerupShop
+          username={username}
+          userData={profileData.userData}
+          powerups={profileData.powerups}
+          userPowerups={profileData.userPowerups}
+          onPurchase={handlePurchase}
+        />
 
-          <div className="grid gap-3">
-            {Object.values(powerups).map((powerup) => {
-              const owned = userPowerups[powerup.id] || 0;
-              const canAfford = (userData?.channelPoints || 0) >= powerup.cost;
-              const isBuying = buying === powerup.id;
+        <SettingsSection
+          username={username}
+          selectedVoice={profileData.selectedVoice}
+          setSelectedVoice={profileData.setSelectedVoice}
+          dropImageUrl={profileData.dropImageUrl}
+          setDropImageUrl={profileData.setDropImageUrl}
+          selectedCountry={profileData.selectedCountry}
+          setSelectedCountry={profileData.setSelectedCountry}
+          voices={profileData.voices}
+          onSave={handleSave}
+          onImageUpload={handleImageUpload}
+        />
 
-              return (
-                <div key={powerup.id} className="bg-secondary rounded-lg p-4 flex items-center justify-between gap-4 overflow-hidden">
-                  <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
-                    <span className="text-3xl flex-shrink-0">{powerup.emoji}</span>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-foreground">{powerup.name}</h3>
-                        {owned > 0 && (
-                          <span className="bg-accent/50 text-accent-foreground text-xs px-2 py-0.5 rounded">
-                            Owned: {owned}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">{powerup.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Command: !{powerup.id}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <span className={`font-bold whitespace-nowrap ${canAfford ? 'text-warning' : 'text-destructive'}`}>
-                      {powerup.cost} pts
-                    </span>
-                    <button
-                      onClick={() => handleBuyPowerup(powerup.id)}
-                      disabled={!canAfford || isBuying}
-                      className={`px-4 py-2 rounded font-medium transition-colors ${
-                        isBuying
-                          ? 'bg-muted text-muted-foreground cursor-wait'
-                          : canAfford
-                            ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                            : 'bg-muted text-muted-foreground cursor-not-allowed'
-                      }`}
-                    >
-                      {isBuying ? 'Buying...' : 'Buy'}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {message && (
-            <div
-              className={`mt-4 p-3 rounded ${message.includes('Purchased') ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'}`}
-            >
-              {message}
-            </div>
-          )}
-        </div>
-
-        {/* Settings Section */}
-        <div className="bg-card rounded-xl p-6 mb-6 border border-border overflow-hidden">
-          <h2 className="text-xl font-bold mb-4 text-primary">Settings</h2>
-
-          {/* Country Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-foreground mb-2">Country</label>
-            <div className="flex items-center gap-3">
-              {selectedCountry && (
-                <img
-                  src={getFlagUrl(selectedCountry) || ''}
-                  alt={selectedCountry}
-                  className="w-8 h-6 object-cover rounded"
-                />
-              )}
-              <select
-                value={selectedCountry}
-                onChange={(e) => setSelectedCountry(e.target.value)}
-                className="flex-1 bg-secondary border border-border rounded-lg px-4 py-2 text-foreground focus:border-primary focus:outline-none"
-              >
-                {countries.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">Your flag will be displayed next to your username in chat</p>
-          </div>
-
-          {/* Voice Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-foreground mb-2">Default TTS Voice</label>
-            <select
-              value={selectedVoice}
-              onChange={(e) => setSelectedVoice(e.target.value)}
-              className="w-full bg-secondary border border-border rounded-lg px-4 py-2 text-foreground focus:border-primary focus:outline-none"
-            >
-              <option value="">-- Select a voice --</option>
-              {voices.map((voice) => (
-                <option key={voice.voice_id} value={voice.voice_id}>
-                  {voice.name} ({voice.labels?.gender || 'unknown'}, {voice.labels?.accent || 'neutral'})
-                </option>
-              ))}
-            </select>
-            <p className="text-sm text-muted-foreground mt-1">This voice will be used when you use !say without specifying a voice</p>
-          </div>
-
-          {/* Drop Game Image */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-foreground mb-2">Drop Game Avatar</label>
-
-            {dropImageUrl && (
-              <div className="mb-4 flex items-center gap-4">
-                <img
-                  src={dropImageUrl}
-                  alt="Drop avatar"
-                  className="w-20 h-20 rounded-full object-cover border-2 border-primary"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-                <div className="text-sm text-muted-foreground">Current avatar</div>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-3">
-              <label className="cursor-pointer">
-                <div
-                  className={`flex items-center justify-center gap-2 bg-secondary hover:bg-muted border border-border rounded-lg px-4 py-3 transition-colors ${uploading ? 'opacity-50' : ''}`}
-                >
-                  {uploading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span>Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <span>Upload Image</span>
-                    </>
-                  )}
-                </div>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
-                  onChange={handleImageUpload}
-                  disabled={uploading}
-                  className="hidden"
-                />
-              </label>
-              <p className="text-sm text-muted-foreground">PNG, JPEG, GIF, or WebP. Max 2MB. This image will be used in the drop game.</p>
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Or enter an image URL:</label>
-              <input
-                type="url"
-                value={dropImageUrl}
-                onChange={(e) => setDropImageUrl(e.target.value)}
-                placeholder="https://example.com/my-avatar.png"
-                className="w-full bg-secondary border border-border rounded-lg px-4 py-2 text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground font-bold py-3 px-4 rounded-lg transition-colors"
-          >
-            {saving ? 'Saving...' : 'Save Settings'}
-          </button>
-
-          {message && !message.includes('Purchased') && (
-            <div
-              className={`mt-4 p-3 rounded-lg ${message.includes('success') ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'}`}
-            >
-              {message}
-            </div>
-          )}
-        </div>
-
-        {/* Help Section */}
-        <div className="bg-card rounded-xl p-6 border border-border overflow-hidden">
-          <h2 className="text-xl font-bold mb-4 text-primary">Help</h2>
-          <div className="flex flex-col gap-3 text-foreground text-sm overflow-hidden">
-            <p>
-              <strong className="text-primary">!say &lt;message&gt;</strong> - Text-to-speech using your default voice (costs 500 points)
-            </p>
-            <p>
-              <strong className="text-primary">!say id=VOICE_ID &lt;message&gt;</strong> - Use a specific voice (also saves it as default)
-            </p>
-            <p>
-              <strong className="text-primary">!drop</strong> - Play the drop game to earn points
-            </p>
-            <p>
-              <strong className="text-primary">!drop -powerups</strong> - List available powerups
-            </p>
-            <p>
-              <strong className="text-primary">!drop -buy [powerup]</strong> - Buy a powerup (e.g., !drop -buy tnt)
-            </p>
-            <p>
-              <strong className="text-primary">!drop -mine</strong> - View your owned powerups
-            </p>
-            <p>
-              <strong className="text-primary">!drop -rules</strong> - Get link to the drop game rules
-            </p>
-            <p>
-              <strong className="text-primary">!points</strong> - Check your point balance
-            </p>
-            <p>
-              <strong className="text-primary">!voicelist</strong> - View all available TTS voices
-            </p>
-          </div>
-          <div className="mt-4 pt-4 border-t border-border">
-            <Link to="/drop-game-rules" className="inline-flex items-center gap-2 text-accent-foreground hover:text-primary">
-              <span>View Drop Game Rules</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </Link>
-          </div>
-        </div>
+        <HelpSection />
       </div>
     </div>
   );

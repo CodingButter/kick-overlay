@@ -1,0 +1,45 @@
+# BMM Workflow Status - kick-overlay
+# Generated: 2025-12-06
+# Track: BMad Method (Brownfield)
+
+# STATUS DEFINITIONS:
+# ==================
+# Initial Status (before completion):
+#   - required: Must be completed to progress
+#   - optional: Can be completed but not required
+#   - recommended: Strongly suggested but not required
+#   - conditional: Required only if certain conditions met (e.g., if_has_ui)
+#
+# Completion Status:
+#   - {file-path}: File created/found (e.g., "docs/product-brief.md")
+#   - skipped: Optional/conditional workflow that was skipped
+
+generated: "2025-12-07"
+project: "kick-overlay"
+project_type: "software"
+selected_track: "bmad-method"
+field_type: "brownfield"
+workflow_path: "method-brownfield.yaml"
+
+workflow_status:
+  # Prerequisite - Documentation (Required for brownfield)
+  document-project: docs/index.md
+
+  # Phase 0 - Discovery (Optional - User selected ALL)
+  brainstorm-project: optional
+  research: optional
+
+  # Phase 1 - Planning
+  prd: required
+  validate-prd: optional
+  create-ux-design: conditional  # if_has_ui
+
+  # Phase 2 - Solutioning
+  create-architecture: recommended
+  create-epics-and-stories: required
+  test-design: recommended
+  validate-architecture: optional
+  implementation-readiness: required
+
+  # Phase 3 - Implementation
+  sprint-planning: required

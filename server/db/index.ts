@@ -2,7 +2,10 @@ import { Database } from 'bun:sqlite';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import path from 'path';
 
-const DB_PATH = path.join(import.meta.dir, '../../data/kick-overlay.db');
+// Database is stored in the data directory
+// Use .bunignore or bunfig.toml to exclude from HMR watching
+const DB_DIR = path.join(import.meta.dir, '../../data');
+const DB_PATH = path.join(DB_DIR, 'kick-overlay.db');
 const SCHEMA_PATH = path.join(import.meta.dir, 'schema.sql');
 
 // Ensure data directory exists
@@ -19,6 +22,50 @@ db.exec('PRAGMA foreign_keys = ON');
 // Run schema
 const schema = readFileSync(SCHEMA_PATH, 'utf-8');
 db.exec(schema);
+
+// Migration: Update point_transactions CHECK constraint to include 'gamble' and 'duel'
+// SQLite doesn't support ALTER TABLE to modify constraints, so we need to recreate the table
+try {
+  // Check if migration is needed by trying to insert a test row with 'gamble' source
+  const testMigration = db.prepare(`
+    SELECT sql FROM sqlite_master
+    WHERE type='table' AND name='point_transactions'
+  `).get() as { sql: string } | undefined;
+
+  if (testMigration && !testMigration.sql.includes("'gamble'")) {
+    console.log('Running migration: Adding gamble and duel sources to point_transactions...');
+
+    db.exec(`
+      -- Create new table with updated constraint
+      CREATE TABLE IF NOT EXISTS point_transactions_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        amount INTEGER NOT NULL,
+        source TEXT NOT NULL CHECK (source IN ('chat', 'watch', 'drop', 'sub', 'gift', 'renewal', 'tip', 'admin', 'spend', 'gamble', 'duel')),
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      -- Copy existing data
+      INSERT INTO point_transactions_new (id, user_id, amount, source, description, created_at)
+      SELECT id, user_id, amount, source, description, created_at FROM point_transactions;
+
+      -- Drop old table
+      DROP TABLE point_transactions;
+
+      -- Rename new table
+      ALTER TABLE point_transactions_new RENAME TO point_transactions;
+
+      -- Recreate index
+      CREATE INDEX IF NOT EXISTS idx_transactions_user ON point_transactions(user_id);
+    `);
+
+    console.log('✅ Migration complete: gamble and duel sources added');
+  }
+} catch (migrationError) {
+  console.error('Migration error (non-fatal):', migrationError);
+}
 
 console.log('✅ Database initialized at:', DB_PATH);
 
@@ -348,6 +395,17 @@ export const queries = {
   deleteGoal: db.prepare<null, [string]>(
     'DELETE FROM goals WHERE id = ?'
   ),
+
+  // Point transactions
+  recordPointTransaction: db.prepare<null, [number, number, string, string | null]>(
+    'INSERT INTO point_transactions (user_id, amount, source, description) VALUES (?, ?, ?, ?)'
+  ),
+  getPointTransactions: db.prepare<PointTransactionRow, [number]>(
+    'SELECT * FROM point_transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 100'
+  ),
+  getPointSummaryBySource: db.prepare<{ source: string; total: number }, [number]>(
+    'SELECT source, SUM(amount) as total FROM point_transactions WHERE user_id = ? GROUP BY source'
+  ),
 };
 
 // Powerup config row type
@@ -397,6 +455,16 @@ interface GoalRow {
   target_value: number;
   enabled: number;
   updated_at: string;
+}
+
+// Point transaction row type
+interface PointTransactionRow {
+  id: number;
+  user_id: number;
+  amount: number;
+  source: string;
+  description: string | null;
+  created_at: string;
 }
 
 // Default powerup definitions for seeding
@@ -669,5 +737,26 @@ export function getGoalsData(): { followers: { current: number; target: number }
   return result;
 }
 
+// Get point summary by source for a user
+export function getPointSummary(username: string): Record<string, number> {
+  const user = queries.getUserByUsername.get(username);
+  if (!user) return {};
+
+  const rows = queries.getPointSummaryBySource.all(user.id);
+  const result: Record<string, number> = {};
+  for (const row of rows) {
+    result[row.source] = row.total;
+  }
+  return result;
+}
+
+// Get recent point transactions for a user
+export function getRecentTransactions(username: string): PointTransactionRow[] {
+  const user = queries.getUserByUsername.get(username);
+  if (!user) return [];
+
+  return queries.getPointTransactions.all(user.id);
+}
+
 // Export types
-export type { UserRow, UserPointsRow, PowerupRow, SessionRow, TokenRow, VerificationRow, LeaderboardRow, AdminUserRow, PowerupConfigRow, OverlaySettingRow, AdminSessionRow, TipRow, GoalRow };
+export type { UserRow, UserPointsRow, PowerupRow, SessionRow, TokenRow, VerificationRow, LeaderboardRow, AdminUserRow, PowerupConfigRow, OverlaySettingRow, AdminSessionRow, TipRow, GoalRow, PointTransactionRow };

@@ -1,24 +1,60 @@
 # Kick Overlay System
 
-A full-featured stream overlay and chatbot system for [Kick.com](https://kick.com) built with Bun. Features real-time chat overlays, interactive drop game, AI chatbot, TTS integration, channel points, powerups, and more.
+<div align="center">
+
+![Kick Overlay](https://img.shields.io/badge/Platform-Kick.com-53fc18?style=for-the-badge&logo=kick&logoColor=white)
+![Bun](https://img.shields.io/badge/Runtime-Bun-f9f1e1?style=for-the-badge&logo=bun&logoColor=black)
+![React](https://img.shields.io/badge/Frontend-React-61dafb?style=for-the-badge&logo=react&logoColor=black)
+![SQLite](https://img.shields.io/badge/Database-SQLite-003b57?style=for-the-badge&logo=sqlite&logoColor=white)
+
+**A full-featured stream overlay and chatbot system for [Kick.com](https://kick.com)**
+
+*Drop games, channel points, TTS, AI chatbot, gambling, duels, and more!*
+
+[Quick Start](#quick-start) | [Features](#features) | [Documentation](#documentation) | [Chat Commands](#chat-commands)
+
+</div>
+
+---
+
+## What is Kick Overlay?
+
+Kick Overlay is an all-in-one streaming toolkit that transforms your Kick.com streams with interactive overlays, a complete channel points economy, and engaging chat games. Built with modern web technologies and designed for streamers who want professional-quality engagement tools.
+
+### Highlights
+
+- **Interactive Drop Game** - Viewers drop avatars onto a platform to earn points with physics-based gameplay
+- **Channel Points Economy** - Earn points from watching, chatting, subscribing, tipping, and more
+- **Gambling & Duels** - Roll dice, flip coins, and challenge other viewers for points
+- **Custom TTS** - Text-to-speech with 30+ ElevenLabs voices and per-user preferences
+- **AI Chatbot** - Claude-powered bot that engages naturally with your community
+- **Beautiful Overlays** - Professional chat display, goal trackers, and drop game visuals
+- **Admin Dashboard** - Web-based control panel for all settings
+- **Theming System** - Full customization to match your brand
+
+---
 
 ## Table of Contents
 
 - [Features](#features)
-- [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Running the Application](#running-the-application)
 - [Overlay URLs for OBS](#overlay-urls-for-obs)
 - [Chat Commands](#chat-commands)
+  - [General Commands](#general-commands)
+  - [Drop Game Commands](#drop-game-commands)
+  - [TTS Commands](#tts-commands)
+  - [Gambling Commands](#gambling-commands)
+  - [Duel Commands](#duel-commands)
+  - [Social Commands](#social-commands)
+- [Channel Points Economy](#channel-points-economy)
 - [Drop Game & Powerups](#drop-game--powerups)
 - [AI Chatbot](#ai-chatbot)
 - [Admin Dashboard](#admin-dashboard)
 - [User Profiles](#user-profiles)
 - [Database Management](#database-management)
-- [Project Structure](#project-structure)
-- [API Endpoints](#api-endpoints)
+- [API Reference](#api-reference)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
@@ -28,56 +64,66 @@ A full-featured stream overlay and chatbot system for [Kick.com](https://kick.co
 ## Features
 
 ### Stream Overlays
-- **Chat Overlay** - Beautiful real-time chat display for OBS with animations
-- **Goals Overlay** - Track follower and subscriber goals with progress bars
+- **Chat Overlay** - Beautiful real-time chat display with animations and theming
+- **Goals Overlay** - Track follower and subscriber goals with animated progress bars
 - **Drop Game Overlay** - Interactive physics-based game visible on stream
 - **Rotating Tips** - Display helpful tips and information to viewers
+- **Event Alerts** - Show follows, subs, gifts, and tips
 
 ### Interactive Systems
 - **Drop Game** - Viewers drop avatars onto a platform to earn points
 - **Powerups** - TNT, Shield, Magnet, Ghost, Boost, and Power Drop abilities
-- **Channel Points** - Earn points for chatting and watching, spend on TTS and powerups
-- **Leaderboards** - Track top players and stats
+- **Gambling** - !roll and !coinflip commands for betting points
+- **Duels** - Challenge other viewers to win their points
+- **Leaderboards** - Track top players across all activities
+
+### Channel Points Economy
+- **Earn Points** from chatting, watching, subscribing, tipping, and gifting
+- **Spend Points** on TTS messages, drop game powerups, and more
+- **Track History** - See exactly where every point came from
+- **Reward Supporters** - Bonus points for subs, gifts, and tips
 
 ### AI & Automation
-- **AI Chatbot** - Claude-powered chatbot that responds naturally to chat
-- **Text-to-Speech** - ElevenLabs integration with per-user voice preferences
+- **AI Chatbot** - Claude-powered bot that responds naturally to chat
+- **Text-to-Speech** - ElevenLabs integration with 30+ voices
+- **Per-User Voices** - Viewers can set their own TTS voice
 - **Auto-moderation** - Configurable command cooldowns
 
 ### Management
 - **Admin Dashboard** - Web-based control panel for all settings
 - **User Profiles** - Viewers can customize their drop image and voice
-- **Drizzle Studio** - Database browser for advanced management
+- **Database Studio** - Browse and edit data with Drizzle Studio
+- **Theme Editor** - Customize colors, fonts, and styling
 
 ---
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
+Before you begin, ensure you have:
 
 1. **[Bun](https://bun.sh/)** - JavaScript runtime (v1.0+)
    ```bash
    curl -fsSL https://bun.sh/install | bash
    ```
 
-2. **[Claude Code CLI](https://claude.ai/claude-code)** (optional, for AI chatbot)
-   ```bash
-   npm install -g @anthropic-ai/claude-code
-   ```
-
-3. **Kick.com Developer Application**
+2. **Kick.com Developer Application**
    - Go to [Kick Developer Settings](https://kick.com/dashboard/oauth)
    - Create a new OAuth application
    - Note your Client ID and Client Secret
 
-4. **Public URL** - Required for webhooks. Options:
-   - [ngrok](https://ngrok.com/) - `ngrok http 5050`
+3. **Public URL** - Required for webhooks
+   - [ngrok](https://ngrok.com/) - `ngrok http 5050` (recommended for development)
    - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
    - Your own domain with reverse proxy
 
-5. **ElevenLabs API Key** (optional, for TTS)
+4. **ElevenLabs API Key** (optional, for TTS)
    - Sign up at [ElevenLabs](https://elevenlabs.io/)
    - Get your API key from the dashboard
+
+5. **Claude Code CLI** (optional, for AI chatbot)
+   ```bash
+   npm install -g @anthropic-ai/claude-code
+   ```
 
 ---
 
@@ -123,15 +169,13 @@ bun install
 
 ### Step 2: Configure Environment
 
-Copy the example environment file:
-
 ```bash
 cp .env.example .env
 ```
 
-### Step 3: Set Up Database
+Edit `.env` with your credentials (see [Configuration](#configuration)).
 
-Initialize the SQLite database with default data:
+### Step 3: Set Up Database
 
 ```bash
 bun run db:setup
@@ -153,8 +197,6 @@ This creates:
 
 ### Step 5: Set Up Public URL
 
-For webhooks to work, Kick needs to reach your server. Options:
-
 **Option A: ngrok (recommended for development)**
 ```bash
 ngrok http 5050
@@ -175,21 +217,16 @@ Set up a reverse proxy (nginx/caddy) pointing to port 5050.
 
 ### Environment Variables
 
-Edit your `.env` file with the following:
-
 ```env
 # ===========================================
 # REQUIRED - Kick OAuth Credentials
 # ===========================================
 KICK_CLIENT_ID=your_kick_client_id
 KICK_CLIENT_SECRET=your_kick_client_secret
-
-# Public URL (for webhooks and links)
-# Use your ngrok/tunnel URL or production domain
 PUBLIC_URL=https://your-domain.com
 
 # ===========================================
-# OPTIONAL - User Info (auto-populated after OAuth)
+# AUTO-POPULATED - After OAuth
 # ===========================================
 KICK_USER_ID=your_user_id
 KICK_USERNAME=your_username
@@ -211,22 +248,35 @@ AI_ENABLED=true
 PROJECT_DIRECTORY=/path/to/your/project
 
 # ===========================================
-# OPTIONAL - Channel Points
+# OPTIONAL - Channel Points Configuration
 # ===========================================
-POINTS_PER_MINUTE=5
-POINTS_PER_CHAT=25
-POINTS_COST_SAY=500
+# Earning rates
+POINTS_PER_MINUTE=5           # Points earned per minute watching
+POINTS_PER_CHAT=25            # Points earned per chat message
+
+# Monetization rewards
+POINTS_PER_KICK=100           # Points per Kick donated (tips)
+POINTS_PER_SUB=2000           # Points for subscribing
+POINTS_PER_GIFT=1500          # Points per gifted sub
+POINTS_PER_RENEWAL=1000       # Points for renewing subscription
+
+# Spending costs
+POINTS_COST_SAY=500           # Cost for !say TTS command
+
+# ===========================================
+# OPTIONAL - Gambling Limits
+# ===========================================
+MIN_BET=10                    # Minimum bet for gambling
+MAX_BET=10000                 # Maximum bet for gambling
+MIN_DUEL=50                   # Minimum duel wager
+MAX_DUEL=5000                 # Maximum duel wager
 ```
-
-### Drop Game Configuration
-
-Drop game settings (physics, scoring, powerups) are configured via the Admin Dashboard at `/admin`. All settings are stored in the database.
 
 ---
 
 ## Running the Application
 
-### Development Mode (with hot reload)
+### Development Mode
 
 ```bash
 bun dev
@@ -245,7 +295,7 @@ bun start
 | `bun dev` | Start with hot reload |
 | `bun start` | Start in production mode |
 | `bun run db:setup` | Initialize/seed database |
-| `bun run db:studio` | Open Drizzle Studio (database browser) |
+| `bun run db:studio` | Open Drizzle Studio |
 | `bun run typecheck` | Run TypeScript type checking |
 | `bun test` | Run tests |
 
@@ -255,8 +305,8 @@ bun start
 
 Add these as **Browser Sources** in OBS Studio:
 
-| Overlay | URL | Recommended Size |
-|---------|-----|------------------|
+| Overlay | URL | Size |
+|---------|-----|------|
 | **Main Overlay** | `http://localhost:5050/overlay` | 1920x1080 |
 | **Chat Only** | `http://localhost:5050/overlay/chat` | 400x600 |
 | **Goals Only** | `http://localhost:5050/overlay/goals` | 400x200 |
@@ -267,7 +317,7 @@ Add these as **Browser Sources** in OBS Studio:
 - **Width**: Match your canvas (1920 for 1080p)
 - **Height**: Match your canvas (1080 for 1080p)
 - **FPS**: 60
-- **Custom CSS**: (optional) `body { background-color: transparent; }`
+- **Custom CSS**: `body { background-color: transparent; }`
 - **Shutdown source when not visible**: Unchecked
 - **Refresh browser when scene becomes active**: Checked
 
@@ -277,32 +327,11 @@ Add these as **Browser Sources** in OBS Studio:
 
 ### General Commands
 
-| Command | Description | Cooldown |
-|---------|-------------|----------|
-| `!help` | Get link to commands list | 5s |
-| `!commands` | Alias for !help | 5s |
-| `!points` | Check your channel points balance | 5s |
-| `!profile` | Get link to your profile page | 5s |
-
-### Social Commands
-
-| Command | Description |
-|---------|-------------|
-| `!socials` | Get all social media links |
-| `!twitter` / `!x` | Twitter/X profile |
-| `!youtube` / `!yt` | YouTube channel |
-| `!github` / `!gh` | GitHub profile |
-| `!tiktok` | TikTok profile |
-| `!instagram` / `!ig` | Instagram profile |
-| `!discord` | Discord server invite |
-
-### TTS Commands
-
-| Command | Description | Cost |
-|---------|-------------|------|
-| `!say <message>` | Text-to-speech | 500 points |
-| `!say -voice <id> <message>` | TTS with specific voice | 500 points |
-| `!voices` | Get link to voice list | Free |
+| Command | Aliases | Description | Cooldown |
+|---------|---------|-------------|----------|
+| `!help` | `!commands` | Get link to commands list | 5s |
+| `!points` | `!balance`, `!bal` | Check your points balance | 5s |
+| `!profile` | - | Get link to your profile page | 5s |
 
 ### Drop Game Commands
 
@@ -310,13 +339,91 @@ Add these as **Browser Sources** in OBS Studio:
 |---------|-------------|----------|
 | `!drop` | Drop with your avatar | 10s |
 | `!drop <emote>` | Drop with an emote | 10s |
-| `!drop -powerup <type>` | Drop using a powerup | 10s |
+| `!drop -powerup <type>` | Use a powerup while dropping | 10s |
 | `!drop -rules` | View drop game rules | - |
 | `!drop -powerups` | View available powerups | - |
 | `!drop -buy <type>` | Buy a powerup | - |
 | `!drop -mine` | View your powerup inventory | - |
-| `!dropstats` | View your drop stats | 5s |
-| `!droptop` | View leaderboard | 10s |
+| `!dropstats` | View your drop statistics | 5s |
+| `!droptop` | View the leaderboard | 10s |
+
+### Queue Mode Commands (Mass Drops)
+
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `!queuedrop` | `!qdrop`, `!joindrop` | Join the waiting queue |
+| `!queuedrop <emote>` | - | Queue with a specific emote |
+| `!leavedrop` | `!unqdrop`, `!canceldrop` | Leave the queue |
+| `!queuesize` | `!qsize`, `!waiting` | Check how many are waiting |
+| `!startdrop` | `!go`, `!launch` | Start the drop (admin only) |
+| `!clearqueue` | - | Clear the queue (admin only) |
+
+**How Queue Mode Works:**
+1. Viewers join with `!queuedrop`
+2. Streamer starts everyone dropping with `!startdrop`
+3. All queued players drop at once!
+
+### TTS Commands
+
+| Command | Description | Cost |
+|---------|-------------|------|
+| `!say <message>` | Text-to-speech message | 500 pts |
+| `!say -voice <id> <message>` | TTS with specific voice | 500 pts |
+| `!voices` | Get link to voice list | Free |
+
+### Gambling Commands
+
+| Command | Aliases | Description | Odds |
+|---------|---------|-------------|------|
+| `!roll <amount>` | `!gamble`, `!bet`, `!slots` | Roll dice to win or lose | See below |
+| `!coinflip <amount>` | `!flip`, `!cf` | 50/50 chance to double | 50% |
+
+**!roll Odds:**
+- Roll 1-10: **JACKPOT!** Win 5x your bet
+- Roll 11-50: **WIN!** Win 2x your bet
+- Roll 51-100: **LOSE** Lose your bet
+
+**Examples:**
+```
+!roll 100        # Bet 100 points on the dice
+!coinflip 500    # Flip a coin for 500 points
+!gamble all      # Bet all your points (use carefully!)
+```
+
+### Duel Commands
+
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `!duel <user> <amount>` | `!challenge`, `!fight` | Challenge another user |
+| `!accept` | - | Accept a pending duel |
+| `!decline` | `!deny`, `!reject` | Decline a duel |
+| `!cancel` | - | Cancel your pending challenge |
+
+**How Duels Work:**
+1. Challenge someone: `!duel @username 500`
+2. They have 60 seconds to `!accept` or `!decline`
+3. If accepted, a random winner is chosen (50/50)
+4. Winner takes both wagers!
+
+**Examples:**
+```
+!duel @rival 500     # Challenge @rival for 500 points
+!accept              # Accept a pending duel against you
+!decline             # Decline a duel
+!cancel              # Cancel your outgoing challenge
+```
+
+### Social Commands
+
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `!socials` | - | Get all social media links |
+| `!twitter` | `!x` | Twitter/X profile |
+| `!youtube` | `!yt` | YouTube channel |
+| `!github` | `!gh` | GitHub profile |
+| `!tiktok` | - | TikTok profile |
+| `!instagram` | `!ig` | Instagram profile |
+| `!discord` | - | Discord server invite |
 
 ### Verification Commands
 
@@ -326,38 +433,86 @@ Add these as **Browser Sources** in OBS Studio:
 
 ---
 
+## Channel Points Economy
+
+### Earning Points
+
+| Activity | Points | Notes |
+|----------|--------|-------|
+| **Watching** | 5/min | Passive earning while stream is live |
+| **Chatting** | 25/msg | Earn for each chat message |
+| **Subscribing** | 2,000 | One-time bonus for new subs |
+| **Sub Renewal** | 1,000 | Bonus for renewing your sub |
+| **Gifting Subs** | 1,500/gift | Per gifted subscription |
+| **Tipping (Kicks)** | 100/kick | Per Kick donated |
+| **Drop Game** | Varies | Based on landing position |
+| **Gambling** | Win/Lose | Risk it for the biscuit |
+| **Duels** | Win/Lose | Challenge other viewers |
+
+### Spending Points
+
+| Item | Cost | Description |
+|------|------|-------------|
+| **TTS Message** | 500 | !say command |
+| **Powerups** | 500 each | Drop game abilities |
+| **Gambling** | Your bet | Win or lose |
+| **Duels** | Your wager | Winner takes all |
+
+### Point Sources Tracked
+
+All points are tracked by source so you can see exactly where they came from:
+
+- `chat` - Points from chat messages
+- `watch` - Points from watch time
+- `drop` - Points from drop game
+- `sub` - Points from subscribing
+- `gift` - Points from gifting subs
+- `renewal` - Points from renewing
+- `tip` - Points from Kick tips
+- `gamble` - Points won/lost gambling
+- `duel` - Points won/lost in duels
+- `admin` - Points given by admin
+- `spend` - Points spent on items
+
+View your complete breakdown on your profile page!
+
+---
+
 ## Drop Game & Powerups
 
 ### How to Play
 
 1. Type `!drop` in chat to drop your avatar
-2. Your avatar falls from a random position
+2. Your avatar falls from a random position at the top
 3. Land on the platform to earn points
 4. Land in the center for bonus points!
 5. Use powerups for special abilities
 
+### Scoring
+
+| Landing Zone | Points |
+|--------------|--------|
+| Edge of platform | 50 |
+| Near center | 100 |
+| Perfect center | 200 + bonus |
+
 ### Powerups
 
-| Powerup | Effect | Default Cost |
-|---------|--------|--------------|
-| **TNT** | Creates explosion pushing other players away | 500 pts |
-| **Power Drop** | Stops horizontal movement, drops straight down fast | 500 pts |
-| **Shield** | Protects from other players' powerups | 500 pts |
-| **Magnet** | Pulls your dropper towards platform center | 500 pts |
-| **Ghost** | Pass through other players without collision | 500 pts |
-| **Boost** | Increases your drop speed | 500 pts |
+| Powerup | Effect | Cost |
+|---------|--------|------|
+| **TNT** | Creates explosion pushing other players away | 500 |
+| **Power Drop** | Stops horizontal movement, drops straight down | 500 |
+| **Shield** | Protects from other players' powerups | 500 |
+| **Magnet** | Pulls your dropper towards platform center | 500 |
+| **Ghost** | Pass through other players without collision | 500 |
+| **Boost** | Increases your drop speed | 500 |
 
-### Buying Powerups
+### Powerup Commands
 
-```
+```bash
 !drop -buy tnt        # Buy TNT powerup
 !drop -buy shield     # Buy Shield powerup
 !drop -mine           # Check your inventory
-```
-
-### Using Powerups
-
-```
 !drop -powerup tnt    # Use TNT on your next drop
 !drop -powerup shield # Use Shield on your next drop
 ```
@@ -365,8 +520,6 @@ Add these as **Browser Sources** in OBS Studio:
 ---
 
 ## AI Chatbot
-
-The overlay includes a Claude-powered AI chatbot that can respond to chat messages naturally.
 
 ### Setup
 
@@ -388,8 +541,8 @@ The overlay includes a Claude-powered AI chatbot that can respond to chat messag
 
 ### How It Works
 
-- The AI reads all non-command messages
-- It has context about the streamer, commands, emotes, and recent chat
+- Reads all non-command messages in chat
+- Has context about the streamer, commands, emotes, and recent chat
 - Responds naturally when appropriate (not to every message)
 - Can search the web and read project files
 - Has a per-user cooldown to prevent spam
@@ -406,7 +559,7 @@ Edit `server/claude_prompt_template.ts` to customize:
 
 ## Admin Dashboard
 
-Access the admin dashboard at `http://localhost:5050/admin`
+Access at `http://localhost:5050/admin`
 
 ### Features
 
@@ -415,33 +568,35 @@ Access the admin dashboard at `http://localhost:5050/admin`
 - **Tips Management** - Add/edit/remove rotating tips
 - **Goals Management** - Set follower/subscriber targets
 - **User Management** - View user stats and balances
+- **Theme Editor** - Customize the visual appearance
+- **Wiki Link** - Access full documentation
 
 ### Authentication
 
-The admin dashboard uses session-based authentication. On first visit, you'll be prompted to authenticate via Kick OAuth.
+The admin dashboard uses session-based authentication. On first visit, you'll be prompted to authenticate via Kick OAuth. Only the channel owner can access admin features.
 
 ---
 
 ## User Profiles
 
-Users can view and customize their profiles at `http://localhost:5050/profile/{username}`
+Visit `http://localhost:5050/profile/{username}`
 
 ### Features
 
-- View channel points and drop points
-- See drop game statistics
+- View total points and breakdown by source
+- See earned vs spent statistics
+- View drop game statistics
 - View powerup inventory
 - Customize drop avatar/image
 - Set preferred TTS voice
-- View recent activity
+- View recent point transactions
 
 ### Profile Verification
 
-Users verify profile ownership by:
-1. Visiting `http://localhost:5050/login`
-2. Entering their Kick username
-3. Typing `!verify <code>` in chat
-4. Being redirected to their profile
+1. Visit `http://localhost:5050/login`
+2. Enter your Kick username
+3. Type `!verify <code>` in chat
+4. You're now verified and can customize your profile!
 
 ---
 
@@ -449,11 +604,11 @@ Users verify profile ownership by:
 
 ### SQLite Database
 
-The application uses SQLite stored at `data/kick-overlay.db`.
+Located at `data/kick-overlay.db`
 
 ### Drizzle Studio
 
-Browse and edit the database visually:
+Browse and edit visually:
 
 ```bash
 bun run db:studio
@@ -467,6 +622,7 @@ Then visit `https://local.drizzle.studio`
 |-------|-------------|
 | `users` | User accounts and preferences |
 | `user_points` | Channel and drop points |
+| `point_transactions` | History of all point changes |
 | `powerup_inventory` | User powerup ownership |
 | `powerup_config` | Powerup settings |
 | `overlay_settings` | Overlay configuration |
@@ -479,8 +635,6 @@ Then visit `https://local.drizzle.studio`
 | `admin_sessions` | Admin login sessions |
 
 ### Database Reset
-
-To reset the database completely:
 
 ```bash
 rm data/kick-overlay.db
@@ -498,8 +652,7 @@ kick-overlay/
 ├── package.json          # Dependencies and scripts
 ├── tsconfig.json         # TypeScript configuration
 ├── drizzle.config.ts     # Drizzle ORM configuration
-├── .env                  # Environment variables (create from .env.example)
-├── .env.example          # Example environment file
+├── .env                  # Environment variables
 │
 ├── data/                 # Database storage
 │   └── kick-overlay.db   # SQLite database
@@ -507,12 +660,15 @@ kick-overlay/
 ├── server/               # Server-side code
 │   ├── commands.ts       # Chat command handlers
 │   ├── elevenlabs.ts     # TTS integration
-│   ├── claude_prompt_template.ts  # AI prompt configuration
+│   ├── claude_prompt_template.ts  # AI prompt config
+│   ├── config/           # Configuration loaders
+│   ├── routes/           # API route handlers
+│   ├── services/         # Business logic services
 │   └── db/               # Database layer
-│       ├── index.ts      # Database queries and helpers
-│       ├── schema.sql    # SQL schema definitions
+│       ├── index.ts      # Database queries
+│       ├── schema.sql    # SQL schema
 │       ├── drizzle-schema.ts  # Drizzle ORM schema
-│       └── setup.ts      # Database initialization script
+│       └── setup.ts      # Database initialization
 │
 ├── src/                  # Frontend React application
 │   ├── App.tsx           # Main React app with routing
@@ -522,11 +678,6 @@ kick-overlay/
 │   │   ├── ui/           # shadcn/ui components
 │   │   └── layout/       # Layout components
 │   ├── pages/            # Page components
-│   │   ├── AdminPage.tsx
-│   │   ├── OverlayPage.tsx
-│   │   ├── ProfilePage.tsx
-│   │   ├── DropGamePage.tsx
-│   │   └── ...
 │   ├── stores/           # Zustand state stores
 │   └── lib/              # Utilities and API client
 │
@@ -536,7 +687,7 @@ kick-overlay/
 
 ---
 
-## API Endpoints
+## API Reference
 
 ### Public Endpoints
 
@@ -550,21 +701,28 @@ kick-overlay/
 | GET | `/admin` | Admin dashboard |
 | GET | `/profile/:username` | User profile page |
 | GET | `/login` | Profile login page |
+| GET | `/wiki` | Documentation wiki |
 
 ### API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/messages` | Get recent chat messages |
+| GET | `/api/chat` | Get recent chat messages |
 | GET | `/api/goals` | Get current goals |
 | GET | `/api/tips` | Get rotating tips |
-| GET | `/api/overlay-settings` | Get overlay configuration |
-| GET | `/api/powerups` | Get powerup configuration |
-| GET | `/api/leaderboard` | Get drop game leaderboard |
+| GET | `/api/overlay/settings` | Get overlay config |
+| GET | `/api/powerups` | Get powerup config |
+| GET | `/api/leaderboard` | Get leaderboard |
 | GET | `/api/user/:username` | Get user data |
-| GET | `/api/voices` | Get available TTS voices |
-| POST | `/api/verify/generate` | Generate verification code |
-| POST | `/api/verify/check` | Check verification status |
+| GET | `/api/voices` | Get TTS voices |
+| GET | `/api/commands` | Get all commands |
+| GET | `/api/theme` | Get theme config |
+| GET | `/api/points/:username/summary` | Point breakdown |
+| GET | `/api/points/:username/transactions` | Transaction history |
+| GET | `/api/dropgame/queue` | Get pending drops |
+| GET | `/api/dropgame/state` | Get full game state |
+| GET | `/api/dropgame/waiting` | Get waiting queue |
+| GET | `/api/dropgame/events?since=timestamp` | Get game events |
 
 ### Webhook Endpoint
 
@@ -579,7 +737,7 @@ kick-overlay/
 ### OAuth Issues
 
 **"Invalid redirect URI"**
-- Ensure your Kick app's redirect URI matches `{PUBLIC_URL}/callback`
+- Ensure Kick app redirect URI matches `{PUBLIC_URL}/callback`
 - Make sure PUBLIC_URL has no trailing slash
 
 **"Webhook not receiving events"**
@@ -592,7 +750,7 @@ kick-overlay/
 **"Database is locked"**
 - Only one process can write at a time
 - Close Drizzle Studio when running the server
-- Kill any zombie bun processes: `pkill -f bun`
+- Kill zombie processes: `pkill -f bun`
 
 **"Table not found"**
 - Run `bun run db:setup` to initialize
@@ -608,15 +766,24 @@ kick-overlay/
 
 **"AI not responding"**
 - Ensure `AI_ENABLED=true` in .env
-- Check Claude CLI is installed: `claude --version`
-- Verify Claude is authenticated: `claude auth`
+- Check Claude CLI: `claude --version`
+- Verify authentication: `claude auth`
 
 ### Drop Game Issues
 
-**"Drops not appearing on overlay"**
+**"Drops not appearing"**
 - Refresh the OBS browser source
-- Check WebSocket connection in browser console
+- Check WebSocket connection in console
 - Verify overlay URL is correct
+
+### Gambling/Duel Issues
+
+**"Can't place bet"**
+- Check you have enough points
+- Ensure bet is within MIN_BET and MAX_BET limits
+
+**"Duel expired"**
+- Duels expire after 60 seconds if not accepted
 
 ---
 
@@ -642,10 +809,24 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 Built by [CodingButter](https://github.com/codingbutter)
 
-- **Runtime**: [Bun](https://bun.sh/)
-- **Frontend**: [React](https://react.dev/) + [Tailwind CSS](https://tailwindcss.com/)
-- **UI Components**: [shadcn/ui](https://ui.shadcn.com/)
-- **Database**: [SQLite](https://sqlite.org/) + [Drizzle ORM](https://orm.drizzle.team/)
-- **TTS**: [ElevenLabs](https://elevenlabs.io/)
-- **AI**: [Claude](https://claude.ai/)
-- **Platform**: [Kick.com](https://kick.com/)
+| Technology | Purpose |
+|------------|---------|
+| [Bun](https://bun.sh/) | JavaScript runtime |
+| [React](https://react.dev/) | Frontend framework |
+| [Tailwind CSS](https://tailwindcss.com/) | Styling |
+| [shadcn/ui](https://ui.shadcn.com/) | UI components |
+| [SQLite](https://sqlite.org/) | Database |
+| [Drizzle ORM](https://orm.drizzle.team/) | Database ORM |
+| [ElevenLabs](https://elevenlabs.io/) | Text-to-speech |
+| [Claude](https://claude.ai/) | AI chatbot |
+| [Kick.com](https://kick.com/) | Streaming platform |
+
+---
+
+<div align="center">
+
+**Made with love for the Kick.com community**
+
+[Report Bug](https://github.com/codingbutter/kick-overlay/issues) | [Request Feature](https://github.com/codingbutter/kick-overlay/issues)
+
+</div>

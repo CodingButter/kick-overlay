@@ -37,6 +37,7 @@ export interface ThemeConfig {
     border: string;
   };
   borderRadius: string;
+  chromaKeyColor: string;
 }
 
 const DEFAULT_THEME: ThemeConfig = {
@@ -76,6 +77,7 @@ const DEFAULT_THEME: ThemeConfig = {
     border: '#e4e4e7',
   },
   borderRadius: '0.75rem',
+  chromaKeyColor: '#FF00FF',
 };
 
 interface ThemeContextValue {
